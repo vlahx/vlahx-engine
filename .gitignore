@@ -57,3 +57,6 @@ app/storage/
 
 # Repo service (specific vlahx.org central store)
 repo_service/
+
+# Local maintenance scripts
+scripts/
