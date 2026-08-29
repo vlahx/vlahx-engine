@@ -23,6 +23,7 @@ from app.core.config import (
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_BOT_USERNAME,
     TELEGRAM_NOTIFY_CHAT_ID,
+    _get_static_nav_items_raw,
     get_active_theme,
     get_flat_post_urls,
     get_nav_fixed_post_label_setting,
@@ -41,6 +42,7 @@ from app.core.config import (
     get_site_tagline,
     get_homepage_mode,
     is_static_page_slug,
+    post_public_path,
 )
 from app.core.posts_db import (
     create_category,
@@ -208,14 +210,10 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             if admin_count <= 1:
                 return RedirectResponse(url="/admin/users?err=Nu+poți+șterge+singurul+Admin+din+sistem!", status_code=303)
 
-        posts = db.execute(select(Post).where(Post.author_id == user_id)).scalars().all()
-        for p in posts:
-            p.author_id = None
+        from app.core.user_purge import purge_user_data
+        purge_user_data(db, user_id)
 
-        db.delete(target_user)
-        db.commit()
-
-        return RedirectResponse(url="/admin/users?msg=Utilizatorul+a+fost+șters+cu+succes!", status_code=303)
+        return RedirectResponse(url="/admin/users?msg=Utilizatorul+și+toate+datele+sale+au+fost+șterse+definitiv+cu+succes!", status_code=303)
 
     def _editor_document_base(request: Request) -> str:
         base = get_public_site_url()
@@ -229,6 +227,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
     async def admin_new(request: Request, db: Session = Depends(get_db)):
         categories = list_categories(db)
         locales = get_available_locales()
+
         return render_template(
             templates,
             request=request,
@@ -242,6 +241,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 "editor_document_base": _editor_document_base(request),
                 "editor_nav_fixed": False,
                 "editor_nav_fixed_label": "",
+                "editor_nav_location": "navbar",
             },
         )
 
@@ -257,18 +257,23 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         categories = list_categories(db)
         locales = get_available_locales()
         post_trans = {}
+
         with SessionLocal() as db_sess:
             stmt = select(PostModel).where(PostModel.slug == slug)
             row = db_sess.execute(stmt).scalars().first()
             if row:
                 from app.core.posts_db import get_post_translations
                 post_trans = get_post_translations(db_sess, row.id)
-        cur_nav_links = [item.get("slug", "") for item in get_nav_fixed_post_links(locale=getattr(request.state, "locale", None))]
-        editor_nav_fixed = post.slug in cur_nav_links
+
+        editor_nav_fixed = False
         editor_nav_fixed_label = ""
-        for item in get_nav_fixed_post_links(locale=getattr(request.state, "locale", None)):
+        editor_nav_location = "navbar"
+        from app.core.config import _get_static_nav_items_raw
+        for item in _get_static_nav_items_raw():
             if item.get("slug") == post.slug:
+                editor_nav_fixed = True
                 editor_nav_fixed_label = item.get("label", "")
+                editor_nav_location = item.get("location", "navbar")
                 break
         return render_template(
             templates,
@@ -283,6 +288,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 "editor_document_base": _editor_document_base(request),
                 "editor_nav_fixed": editor_nav_fixed,
                 "editor_nav_fixed_label": editor_nav_fixed_label,
+                "editor_nav_location": editor_nav_location,
             },
         )
 
@@ -321,6 +327,9 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         editing_original_slug = _txt("editing_original_slug")
         nav_fixed = _chk("nav_fixed")
         nav_fixed_label = _txt("nav_fixed_label") or None
+        nav_location = _txt("nav_location") or "navbar"
+        if nav_location not in ("navbar", "footer", "both"):
+            nav_location = "navbar"
 
         locales = get_available_locales()
         translations_to_save = {}
@@ -368,10 +377,14 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             except ValueError:
                 dt = None
 
+        user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
+        author_id = user.id if user else (getattr(request.state, "user_id", None) or 1)
+
         post = save_post(
             db,
-            author_id=request.state.user_id,
+            author_id=author_id,
             slug=slug_final,
+            original_slug=editing_original_slug,
             title=primary_title or "Post",
             excerpt=primary_excerpt,
             category=category or None,
@@ -402,25 +415,36 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                         "slug": slug,
                         "label": str(item.get("label") or item.get("fixed_label") or slug).strip(),
                         "fixed_label": str(item.get("fixed_label") or item.get("label") or slug).strip(),
+                        "labels": item.get("labels") if isinstance(item.get("labels"), dict) else {},
+                        "url": str(item.get("url") or item.get("href") or f"/{slug}").strip(),
+                        "target": str(item.get("target") or "_self").strip(),
+                        "location": str(item.get("location") or "navbar").strip().lower(),
                     })
 
+        target_slugs = {s.strip() for s in (editing_original_slug, post.slug) if s and s.strip()}
         if nav_fixed:
-            # Label-ul static este derivat din titlul postării în limba activă; câmpul vechi este doar fallback legacy.
             derived_label = post.title or slug_final
-            new_item = {"slug": post.slug, "label": derived_label, "fixed_label": derived_label}
-            filtered = [item for item in cleaned_links if str(item.get("slug") or "").strip() != post.slug]
+            existing_match = next((it for it in cur_links if isinstance(it, dict) and str(it.get("slug") or "").strip() in target_slugs), {})
+            existing_labels = existing_match.get("labels") if isinstance(existing_match.get("labels"), dict) else {}
+            new_item = {
+                "slug": post.slug,
+                "label": derived_label,
+                "fixed_label": derived_label,
+                "labels": existing_labels,
+                "url": post_public_path(post.slug),
+                "target": "_self",
+                "location": nav_location,
+            }
+            filtered = [item for item in cleaned_links if str(item.get("slug") or "").strip() not in target_slugs]
             filtered.append(new_item)
             write_settings({"STATIC_NAV_LINKS": filtered})
         else:
-            if editing_original_slug:
+            if target_slugs:
                 filtered = [
                     item for item in cleaned_links
-                    if str(item.get("slug") or "").strip() not in {editing_original_slug, post.slug}
+                    if str(item.get("slug") or "").strip() not in target_slugs
                 ]
-                if filtered:
-                    write_settings({"STATIC_NAV_LINKS": filtered})
-                else:
-                    write_settings({"STATIC_NAV_LINKS": []})
+                write_settings({"STATIC_NAV_LINKS": filtered})
 
         from app.core.config import invalidate_nav_fixed_post_links_cache
         invalidate_nav_fixed_post_links_cache()
@@ -456,11 +480,40 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 return bytes(v).decode("utf-8", errors="replace").strip()
             return ""
 
+        cat_id_raw = _txt("category_id")
         name = _txt("name")
         parent_ref = _txt("parent_id") or _txt("parent")
+        description = _txt("description")
+        translations_json = _txt("translations_json")
+
+        if cat_id_raw and cat_id_raw.isdigit():
+            from app.models.db_models import Category as CategoryModel
+            from app.core.posts_db import slugify, _resolve_parent_category
+            cat_obj = db.get(CategoryModel, int(cat_id_raw))
+            if cat_obj and name:
+                cat_obj.name = name
+                cat_obj.slug = slugify(name)
+                cat_obj.description = description
+                if translations_json:
+                    cat_obj.translations_json = translations_json
+                if parent_ref:
+                    p_obj = _resolve_parent_category(db, parent_ref)
+                    cat_obj.parent_id = p_obj.id if (p_obj and p_obj.id != cat_obj.id) else None
+                else:
+                    cat_obj.parent_id = None
+                db.commit()
+                db.refresh(cat_obj)
+                return RedirectResponse(url="/admin/categories", status_code=303)
+
         if name:
             try:
-                create_category(db, name=name, parent_slug=parent_ref or None)
+                create_category(
+                    db,
+                    name=name,
+                    parent_slug=parent_ref or None,
+                    description=description,
+                    translations_json=translations_json or "{}"
+                )
             except ValueError:
                 pass
         return RedirectResponse(url="/admin/categories", status_code=303)
@@ -498,7 +551,10 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             static_pages = [
                 {"id": p.id, "slug": p.slug, "title": p.title}
                 for p in all_posts
-                if is_static_page_slug(p.slug) or (p.category and p.category.lower() in ("pages", "pagini", "pagină", "page", "static"))
+                if p.slug and (
+                    is_static_page_slug(p.slug)
+                    or (p.category and p.category.lower() in ("pages", "pagini", "pagină", "page", "static"))
+                )
             ]
         localized_site_names = {
             loc["code"]: (app_settings.get(f"SITE_DISPLAY_NAME_{loc['code']}") or "").strip()
@@ -533,7 +589,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 "active_theme_slug": cur_theme,
                 "homepage_mode": get_homepage_mode(),
                 "static_pages": static_pages,
-                "nav_items": get_nav_fixed_post_links(),
+                "nav_items": _get_static_nav_items_raw(),
             },
         )
 
@@ -555,39 +611,54 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
 
         grouped_sections: dict[str, list[dict[str, Any]]] = {}
         def get_section_title(key: str) -> str:
-            parts = key.split(".")
-            if len(parts) >= 2 and parts[0] == "admin":
-                sub = parts[1]
-                if sub in ("dashboard", "nav"):
+            k = (key or "").strip().lower()
+            parts = k.split(".")
+            prefix = parts[0]
+            
+            if prefix == "admin" or k.startswith("admin_"):
+                sub = parts[1] if len(parts) >= 2 else ""
+                if sub in ("dashboard", "nav") or "dashboard" in k or "nav" in k:
                     return "⚡ Admin Dashboard & Navigation"
-                elif sub in ("users", "roles"):
+                elif sub in ("users", "roles") or "user" in k or "role" in k:
                     return "👥 Admin Users & Roles"
-                elif sub == "settings":
+                elif sub == "settings" or "setting" in k:
                     return "⚙️ Admin Site Settings"
-                elif sub == "translations":
+                elif sub == "translations" or "translation" in k:
                     return "🌐 Admin Translations"
-                elif sub == "themes":
+                elif sub == "themes" or "theme" in k:
                     return "🎨 Admin Themes"
-                elif sub == "plugins":
+                elif sub == "plugins" or "plugin" in k:
                     return "🔌 Admin Plugins"
-                elif sub == "categories":
+                elif sub == "categories" or "category" in k:
                     return "📁 Admin Categories"
-                elif sub == "editor":
+                elif sub == "editor" or "editor" in k:
                     return "📝 Admin Post Editor"
-                elif sub in ("status", "actions", "confirm", "common"):
-                    return "🛠️ Admin Common & Actions"
                 else:
-                    return f"⚙️ Admin {sub.capitalize()}"
-            elif parts[0] == "footer":
+                    return "🛠️ Admin Common & Actions"
+            elif prefix == "auth" or "login" in k or "register" in k or "password" in k or "email" in k or "account" in k or k in ("blocked", "error_auth_required"):
+                return "🔑 Autentificare & Auth"
+            elif prefix == "footer" or "footer" in k:
                 return "🦶 Footer Section"
-            elif parts[0] == "home":
+            elif prefix in ("home", "blog") or "post" in k or "article" in k or "comment" in k or "reply" in k or "read" in k or "heading" in k or "excerpt" in k:
                 return "🏠 Home Page & Blog"
-            elif parts[0] == "ui":
-                return "💻 UI & User Interface"
-            elif parts[0] == "newsletter":
+            elif prefix in ("profile", "user") or "profile" in k or "full_name" in k or "customer" in k:
+                return "👤 Profil & Utilizatori"
+            elif prefix == "hosting" or "domain" in k or "spv" in k:
+                return "🌐 Hosting & Cloud"
+            elif prefix == "devstudio" or "workspace" in k:
+                return "💻 DevStudio IDE"
+            elif prefix in ("ui", "nav") or "btn" in k or "badge" in k or "cancel" in k or "copy" in k or "placeholder" in k or "success" in k or "error" in k or "back" in k or "tab" in k or "site" in k or "share" in k:
+                return "💻 UI & Interfață"
+            elif prefix == "newsletter" or "subscribe" in k:
                 return "📧 Newsletter"
+            elif prefix in ("shop", "product", "order", "delivery") or "payment" in k or "card_" in k or "col_" in k or "price" in k or "discount" in k or "paid" in k or "cash" in k or "download" in k or "buy" in k:
+                return "🛒 Magazin & Comenzi (Shop)"
+            elif prefix in ("stats", "analytics") or "view" in k or "total_" in k or "rank" in k or "ref_" in k or "monitored" in k or "pct" in k:
+                return "📊 Analitice & Statistici"
+            elif "ai_" in k or "gemini" in k or "qwen" in k:
+                return "🤖 AI & Automatizări"
             else:
-                return f"📌 {parts[0].capitalize()}"
+                return "🌐 Diverse Traduceri (General)"
 
         for item in translation_items:
             sec = get_section_title(item.get("key", ""))
@@ -1419,93 +1490,126 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
     @router.post("/admin/settings/save")
     @role_required("admin")
     async def admin_save_settings(request: Request):
-        form = await request.form()
+        try:
+            form = await request.form()
 
-        def _txt(key: str) -> str:
-            v = form.get(key)
-            if v is None:
+            def _txt(key: str) -> str:
+                v = form.get(key)
+                if v is None:
+                    return ""
+                if isinstance(v, str):
+                    return v.strip()
+                if isinstance(v, (bytes, bytearray)):
+                    return bytes(v).decode("utf-8", errors="replace").strip()
                 return ""
-            if isinstance(v, str):
-                return v.strip()
-            if isinstance(v, (bytes, bytearray)):
-                return bytes(v).decode("utf-8", errors="replace").strip()
-            return ""
 
-        def _opt_int(key: str) -> int | None:
-            s = _txt(key)
-            if not s:
-                return None
-            try:
-                n = int(s)
-                return n if n > 0 else None
-            except ValueError:
-                return None
+            def _opt_int(key: str) -> int | None:
+                s = _txt(key)
+                if not s:
+                    return None
+                try:
+                    n = int(s)
+                    return n if n > 0 else None
+                except ValueError:
+                    return None
 
-        def _save_app_setting(key: str, value: str | None) -> None:
-            with SessionLocal() as db:
-                row = db.get(AppSetting, key)
-                if value is None or str(value).strip() == "":
-                    if row is not None:
-                        db.delete(row)
-                else:
-                    if row is None:
-                        db.add(AppSetting(key=key, value=str(value).strip()))
+            def _save_app_setting(key: str, value: str | None) -> None:
+                with SessionLocal() as db:
+                    row = db.get(AppSetting, key)
+                    if value is None or str(value).strip() == "":
+                        if row is not None:
+                            db.delete(row)
                     else:
-                        row.value = str(value).strip()
-                db.commit()
+                        if row is None:
+                            db.add(AppSetting(key=key, value=str(value).strip()))
+                        else:
+                            row.value = str(value).strip()
+                    db.commit()
 
-        _save_app_setting("SITE_DISPLAY_NAME", _txt("site_display_name") or None)
-        _save_app_setting("SITE_TAGLINE", _txt("site_tagline") or None)
-        _save_app_setting("HOMEPAGE_MODE", _txt("homepage_mode") or "blog")
+            _save_app_setting("SITE_DISPLAY_NAME", _txt("site_display_name") or None)
+            _save_app_setting("SITE_TAGLINE", _txt("site_tagline") or None)
+            _save_app_setting("HOMEPAGE_MODE", _txt("homepage_mode") or "blog")
 
-        for loc in get_available_locales():
-            code = loc.get("code")
-            if code:
-                _save_app_setting(f"SITE_DISPLAY_NAME_{code}", _txt(f"site_display_name_{code}") or None)
-                _save_app_setting(f"SITE_TAGLINE_{code}", _txt(f"site_tagline_{code}") or None)
+            for loc in get_available_locales():
+                code = loc.get("code")
+                if code:
+                    _save_app_setting(f"SITE_DISPLAY_NAME_{code}", _txt(f"site_display_name_{code}") or None)
+                    _save_app_setting(f"SITE_TAGLINE_{code}", _txt(f"site_tagline_{code}") or None)
 
-        nav_labels = form.getlist("nav_label")
-        nav_urls = form.getlist("nav_url")
-        nav_targets = form.getlist("nav_target")
+            active_locales = [loc for loc in get_available_locales() if loc.get("enabled")]
+            nav_urls = form.getlist("nav_url")
+            nav_targets = form.getlist("nav_target")
+            nav_locations = form.getlist("nav_location")
+            legacy_labels = form.getlist("nav_label")
 
-        new_nav_links = []
-        for i in range(len(nav_labels)):
-            lbl = str(nav_labels[i] or "").strip()
-            u = str(nav_urls[i] if i < len(nav_urls) else "").strip()
-            tgt = str(nav_targets[i] if i < len(nav_targets) else "_self").strip()
-            if not lbl and not u:
-                continue
-            slug = ""
-            if u and not u.startswith("/") and not u.startswith("http://") and not u.startswith("https://") and not u.startswith("#"):
-                slug = u
-                u = f"/{u}"
-            elif u.startswith("/"):
-                pot_slug = u.strip("/")
-                if "/" not in pot_slug:
-                    slug = pot_slug
+            new_nav_links = []
+            for i in range(len(nav_urls)):
+                u = str(nav_urls[i] if i < len(nav_urls) else "").strip()
+                tgt = str(nav_targets[i] if i < len(nav_targets) else "_self").strip()
+                loc = str(nav_locations[i] if i < len(nav_locations) else "navbar").strip().lower()
+                if loc not in ("navbar", "footer", "both"):
+                    loc = "navbar"
 
-            new_nav_links.append({
-                "label": lbl,
-                "url": u,
-                "slug": slug,
-                "target": tgt if tgt in ("_self", "_blank") else "_self",
-            })
+                labels_dict = {}
+                for loc_obj in active_locales:
+                    code = loc_obj["code"]
+                    list_vals = form.getlist(f"nav_label_{code}")
+                    val = str(list_vals[i] if i < len(list_vals) else "").strip()
+                    if val:
+                        labels_dict[code] = val
 
-        _save_app_setting("STATIC_NAV_LINKS", json.dumps(new_nav_links, ensure_ascii=False))
-        from app.core.config import invalidate_nav_fixed_post_links_cache
-        invalidate_nav_fixed_post_links_cache()
+                fallback_lbl = ""
+                if i < len(legacy_labels):
+                    fallback_lbl = str(legacy_labels[i] or "").strip()
 
-        write_settings(
-            {
-                "FLAT_POST_URLS": _txt("flat_post_urls") == "1",
-                "ACTIVE_THEME": _txt("active_theme") or None,
-                "POST_IMAGE_MAX_EDGE": _opt_int("post_image_max_edge"),
-                "POST_IMAGE_OUTPUT_WIDTH": _opt_int("post_image_output_width"),
-                "POST_IMAGE_OUTPUT_HEIGHT": _opt_int("post_image_output_height"),
-                "POST_IMAGE_CROP_OG": _txt("post_image_crop_og") == "1",
-            }
-        )
-        return RedirectResponse(url="/admin/settings", status_code=303)
+                from app.core.i18n import DEFAULT_LOCALE
+                primary_lbl = (
+                    labels_dict.get("ro")
+                    or labels_dict.get(DEFAULT_LOCALE)
+                    or (next(iter(labels_dict.values())) if labels_dict else fallback_lbl)
+                    or fallback_lbl
+                ).strip()
+
+                if not primary_lbl and not u and not labels_dict:
+                    continue
+
+                slug = ""
+                if u and not u.startswith("/") and not u.startswith("http://") and not u.startswith("https://") and not u.startswith("#"):
+                    slug = u
+                    u = f"/{u}"
+                elif u.startswith("/"):
+                    pot_slug = u.strip("/")
+                    if "/" not in pot_slug:
+                        slug = pot_slug
+
+                new_nav_links.append({
+                    "label": primary_lbl,
+                    "fixed_label": primary_lbl,
+                    "labels": labels_dict,
+                    "url": u,
+                    "slug": slug,
+                    "target": tgt if tgt in ("_self", "_blank") else "_self",
+                    "location": loc,
+                })
+
+            _save_app_setting("STATIC_NAV_LINKS", json.dumps(new_nav_links, ensure_ascii=False))
+            from app.core.config import invalidate_nav_fixed_post_links_cache
+            invalidate_nav_fixed_post_links_cache()
+
+            write_settings(
+                {
+                    "FLAT_POST_URLS": _txt("flat_post_urls") == "1",
+                    "ACTIVE_THEME": _txt("active_theme") or None,
+                    "POST_IMAGE_MAX_EDGE": _opt_int("post_image_max_edge"),
+                    "POST_IMAGE_OUTPUT_WIDTH": _opt_int("post_image_output_width"),
+                    "POST_IMAGE_OUTPUT_HEIGHT": _opt_int("post_image_output_height"),
+                    "POST_IMAGE_CROP_OG": _txt("post_image_crop_og") == "1",
+                }
+            )
+            return RedirectResponse(url="/admin/settings?msg=Set%C4%83rile+au+fost+salvate+cu+succes%21", status_code=303)
+        except Exception as e:
+            logger.error("Error saving admin settings: %s", e, exc_info=True)
+            return RedirectResponse(url="/admin/settings?err=A+intervenit+o+eroare+la+salvarea+set%C4%83rilor.", status_code=303)
 
     @router.post("/admin/settings/upload-image")
     @role_required("admin")

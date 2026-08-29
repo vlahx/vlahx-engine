@@ -7,10 +7,11 @@
     <p class="text-secondary mb-0 d-none d-md-block">{{ t("admin.editor.subtitle") }}</p>
   </div>
 
-  <form class="card shadow-sm overflow-hidden" method="post" action="/admin/save" enctype="multipart/form-data" onsubmit="return beforeSubmit();">
+  <form method="post" action="/admin/save" enctype="multipart/form-data" onsubmit="return beforeSubmit();">
     <input type="hidden" name="editing_original_slug" value="{{ post.slug if post else '' }}" />
 
-    <div class="card-body p-3 p-lg-4">
+    <div class="card card-modern shadow-sm mb-4">
+      <div class="card-body p-3 p-lg-4">
 
     <!-- Setări Globale Postare -->
     <div class="row g-3 mb-4">
@@ -18,7 +19,7 @@
         <label class="form-label fw-semibold">{{ t("admin.editor.slugLabel") }}</label>
         <input class="form-control" type="text" name="slug" value="{{ post.slug if post else '' }}" placeholder="ex: aventura-maroc" />
       </div>
-      <div class="col-md-3">
+      <div class="col-md-6">
         <label class="form-label fw-semibold">{{ t("admin.editor.categoryLabel") }}</label>
         <input class="form-control" type="text" name="category" list="categories-list" value="{{ post.category if post else '' }}" placeholder="Ex: General, Tehnic" />
         <datalist id="categories-list">
@@ -27,7 +28,7 @@
           {% endfor %}
         </datalist>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-6">
         <label class="form-label fw-semibold">{{ t("admin.editor.status") }}</label>
         <div class="form-check form-switch mt-2">
           <input class="form-check-input" type="checkbox" name="draft" value="true" id="draft_check" {% if post and post.draft %}checked{% endif %}>
@@ -36,18 +37,28 @@
       </div>
     </div>
 
-    <!-- PAGINĂ FIXĂ / STATICĂ ÎN MENIU (NAVBAR) -->
+    <!-- PAGINĂ FIXĂ / STATICĂ ÎN MENIU -->
     <div class="card mb-4 border-info border-opacity-25 bg-info bg-opacity-10">
       <div class="card-body p-3">
-        <div class="form-check form-switch mb-2">
-          <input class="form-check-input" type="checkbox" name="nav_fixed" value="true" id="nav_fixed_check" {% if editor_nav_fixed %}checked{% endif %}>
-          <label class="form-check-label fw-bold text-dark" for="nav_fixed_check">📌 {{ t("admin.editor.staticPageHeader") }}</label>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-2">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" name="nav_fixed" value="true" id="nav_fixed_check" {% if editor_nav_fixed %}checked{% endif %}>
+            <label class="form-check-label fw-bold text-dark" for="nav_fixed_check">📌 {{ t("admin.editor.staticPageHeader") }}</label>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <label class="form-label small fw-semibold text-dark mb-0 ms-md-2" for="nav_location_select">📍 Plasare link:</label>
+            <select name="nav_location" id="nav_location_select" class="form-select form-select-sm" style="width: auto;">
+              <option value="navbar" {% if editor_nav_location == 'navbar' or not editor_nav_location %}selected{% endif %}>🧭 Navbar (sus)</option>
+              <option value="footer" {% if editor_nav_location == 'footer' %}selected{% endif %}>🦶 Footer (subsol)</option>
+              <option value="both" {% if editor_nav_location == 'both' %}selected{% endif %}>🌐 Ambele (Navbar + Footer)</option>
+            </select>
+          </div>
         </div>
         <p class="text-secondary small mb-2">{{ t("admin.editor.staticPageHelp") }}</p>
         <div class="row">
           <div class="col-md-12">
             <div class="alert alert-light border-0 mb-0 py-2 px-0 text-secondary small">
-              Titlul linkului din navbar este luat automat din titlul postării în limba activă. Câmpul vechi de label este păstrat doar pentru compatibilitate.
+              Titlul linkului din meniu este preluat automat din titlul postării în limba activă a vizitatorului.
             </div>
             <input type="hidden" name="nav_fixed_label" value="" />
           </div>
@@ -128,15 +139,16 @@
       </div>
     </div>
 
+      </div>
     </div>
 
-    <div class="card-footer d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 bg-body border-top px-3 px-lg-4 py-3">
-      <div class="d-grid gap-2 d-md-flex btn-toolbar flex-md-wrap">
-        <button class="btn btn-success btn-lg py-2 px-4 fw-bold" type="submit">💾 {{ t("admin.editor.saveBtn") }}</button>
-        <a class="btn btn-secondary btn-lg py-2 px-3" href="/admin">{{ t("admin.editor.cancelBtn") }}</a>
+    <div class="sticky-bottom bg-body border border-translucent shadow-lg p-3 rounded-3 mb-4 d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3" style="position: sticky; bottom: 1rem; z-index: 1050;">
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <button class="btn btn-success btn-lg px-4 fw-bold shadow-sm" type="submit">💾 {{ t("admin.editor.saveBtn") }}</button>
+        <a class="btn btn-secondary btn-lg px-3" href="/admin">{{ t("admin.editor.cancelBtn") }}</a>
       </div>
       {% if post %}
-        <a class="btn btn-outline-primary btn-lg py-2 px-3" href="{{ post_public_path(post.slug) }}" target="_blank" rel="noopener">👁️ {{ t("admin.actions.viewLive") }}</a>
+        <a class="btn btn-outline-primary btn-lg px-3" href="{{ post_public_path(post.slug) }}" target="_blank" rel="noopener">👁️ {{ t("admin.actions.viewLive") }}</a>
       {% endif %}
     </div>
   </form>

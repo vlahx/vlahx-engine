@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 APP_DIR = PROJECT_ROOT / "app"
 LOCALES_DIR = APP_DIR / "locales"
 
-DEFAULT_LOCALE = "en"
+DEFAULT_LOCALE = "ro"
 SUPPORTED_LOCALES = {"en", "ro"}
 
 _IN_MEMORY_TRANSLATIONS: dict[str, dict[str, Any]] = {}
@@ -163,10 +163,20 @@ def get_translation(locale: str, key: str) -> str:
     if key in fb_cat and isinstance(fb_cat[key], str) and fb_cat[key].strip():
         return fb_cat[key].strip()
 
+    load_all_translations()
+    cat = _IN_MEMORY_TRANSLATIONS.get(norm, {})
+    if key in cat and isinstance(cat[key], str) and cat[key].strip():
+        return cat[key].strip()
+
+    fb_cat = _IN_MEMORY_TRANSLATIONS.get(DEFAULT_LOCALE, {})
+    if key in fb_cat and isinstance(fb_cat[key], str) and fb_cat[key].strip():
+        return fb_cat[key].strip()
+
     return key
 
 
 def get_translations(locale: str) -> dict[str, Any]:
+    load_all_translations()
     norm = (locale or DEFAULT_LOCALE).strip().lower()
     cat = dict(_IN_MEMORY_TRANSLATIONS.get(DEFAULT_LOCALE, {}))
     if norm != DEFAULT_LOCALE:

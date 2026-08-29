@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="text-center mb-4">
+        <h1 class="fw-extrabold h2 mb-2 text-body">{{ t('auth.loginTitle') }}</h1>
+        <p class="text-secondary small">{{ t('auth.loginSubtitle') }}</p>
+      </div>
+
+      {% if msg %}
+      <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
+        <strong>✅ {{ t('admin.status.public') }}:</strong> {{ msg }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endif %}
+
+      {% if err %}
+      <div class="alert alert-danger alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
+        <strong>❌ Eroare:</strong> {{ err }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endif %}
+
+      <div class="card border-0 shadow-lg rounded-4 p-4 bg-body-tertiary border">
+        <!-- Destination Selector Dropdown -->
+        <div class="mb-4 text-start">
+          <label for="login_target" class="form-label small fw-semibold text-secondary mb-1">{{ t('auth.destinationTarget') }}</label>
+          <select id="login_target" class="form-select border-secondary-subtle rounded-3 py-2" onchange="updateLoginDestination(this.value)">
+            <option value="vlahx" selected>🌐 vlahx.org (Panou Principal / Profil)</option>
+            <option value="repo">🏪 repo.vlahx.org (Repo Store & Publicare Pachete)</option>
+          </select>
+        </div>
+
+        <script>
+        function updateLoginDestination(val) {
+          try {
+            document.cookie = "login_target=" + encodeURIComponent(val) + "; path=/; max-age=300";
+          } catch(e){}
+        }
+        </script>
+
+        <!-- Classic Email + Password Login Form -->
+        <form action="/login" method="POST" class="mb-4 text-start">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-secondary">{{ t('auth.email') }}</label>
+            <input type="email" name="email" class="form-control rounded-3" placeholder="ex: alex@vlahx.org" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-secondary">{{ t('auth.password') }}</label>
+            <input type="password" name="password" class="form-control rounded-3" placeholder="••••••••" required>
+          </div>
+
+          {% if plugin_area_login_form %}
+            {{ plugin_area_login_form | safe }}
+          {% endif %}
+
+          <button type="submit" class="btn btn-primary btn-lg w-100 fw-semibold rounded-pill shadow-sm py-2 mt-2">
+            {{ t('auth.signInBtn') }}
+          </button>
+        </form>
+
+        <div class="d-flex align-items-center mb-4">
+          <hr class="flex-grow-1">
+          <span class="px-3 text-secondary small fw-semibold text-uppercase">SAU 1-CLICK</span>
+          <hr class="flex-grow-1">
+        </div>
+
+        <!-- Google & Telegram SSO Options -->
+        {% if google_client_id %}
+        <div class="mb-3">
+          <a href="/auth/google/login" class="btn btn-outline-secondary btn-lg w-100 fw-semibold d-flex align-items-center justify-content-center gap-2 rounded-3 shadow-sm py-2">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            <span>{{ t('auth.googleSignIn') }}</span>
+          </a>
+        </div>
+        {% endif %}
+
+        {% if bot_username %}
+        <div class="d-flex flex-column align-items-center mb-3">
+          <script async src="https://telegram.org/js/telegram-widget.js?15"
+            data-telegram-login="{{ bot_username }}"
+            data-size="large"
+            data-radius="12"
+            data-auth-url="{{ auth_url }}"
+            data-request-access="write">
+          </script>
+        </div>
+        {% endif %}
+
+        {% if plugin_area_login_options %}
+          {{ plugin_area_login_options | safe }}
+        {% endif %}
+
+        <div class="mt-4 pt-3 border-top text-center">
+          <p class="mb-0 text-secondary small">{{ t('auth.noAccount') }} 
+            <a href="/register" class="fw-bold text-primary text-decoration-none ms-1">{{ t('auth.registerLink') }}</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

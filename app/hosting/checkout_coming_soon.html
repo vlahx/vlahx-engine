@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center align-items-center min-vh-75 py-4">
+    <div class="col-lg-8 text-center">
+      
+      <!-- Animated Status Badge -->
+      <div class="d-inline-flex align-items-center gap-2 bg-warning bg-opacity-15 border border-warning-subtle text-warning-emphasis px-4 py-2 rounded-pill fw-bold mb-4 shadow-sm" style="backdrop-filter: blur(8px);">
+        <span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span>
+        <span class="letter-spacing-1">💳 STRIPE CHECKOUT & PROVISIONING</span>
+      </div>
+
+      <!-- Main Headline -->
+      <h1 class="fw-extrabold display-4 mb-3 text-body">
+        This Page is Not Available Yet 🚀
+      </h1>
+      
+      <p class="lead text-secondary mx-auto mb-4" style="max-width: 650px; font-weight: 400;">
+        We are building the secure <strong>Stripe Checkout</strong> payment integration and the <code>checkout=success</code> automated server provisioning scripts for your domain and hosting package!
+      </p>
+
+      {% if domain %}
+      <div class="d-inline-flex align-items-center gap-2 bg-primary bg-opacity-10 border border-primary-subtle text-primary px-4 py-2 rounded-pill fw-semibold mb-5">
+        <span>🌐 Selected Domain:</span>
+        <strong class="fs-5">{{ domain }}</strong>
+      </div>
+      {% endif %}
+
+      <!-- Workflow Preview Cards -->
+      <div class="card border-0 shadow-lg rounded-4 p-4 p-md-5 bg-body mb-5 text-start border">
+        <h5 class="fw-bold mb-4 text-body d-flex align-items-center gap-2">
+          <span>🛠️</span> Upcoming Workflow (In Development):
+        </h5>
+
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="p-3 rounded-3 bg-body-tertiary h-100 border">
+              <div class="fs-3 mb-2">💳</div>
+              <h6 class="fw-bold mb-1 text-body">1. Stripe Payment</h6>
+              <p class="text-secondary small mb-0">Order domain and hosting package via secure Stripe Checkout.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="p-3 rounded-3 bg-body-tertiary h-100 border">
+              <div class="fs-3 mb-2">⚡</div>
+              <h6 class="fw-bold mb-1 text-body">2. Checkout Success</h6>
+              <p class="text-secondary small mb-0">Automated provisioning script execution and account creation.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="p-3 rounded-3 bg-body-tertiary h-100 border">
+              <div class="fs-3 mb-2">🌐</div>
+              <h6 class="fw-bold mb-1 text-body">3. Instant Activation</h6>
+              <p class="text-secondary small mb-0">Domain and hosting container live with free automatic SSL.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="d-flex flex-wrap justify-content-center gap-3">
+        <a href="/hosting/packages{% if domain %}?domain={{ domain }}{% endif %}" class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-semibold">
+          ← Back to Hosting Packages
+        </a>
+        <a href="/hosting{% if domain %}?domain={{ domain }}{% endif %}" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold text-white shadow-sm">
+          🔍 Search Another Domain
+        </a>
+      </div>
+
+      <p class="text-muted small mt-4">
+        We will return to complete this automated workflow in the coming days.
+      </p>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

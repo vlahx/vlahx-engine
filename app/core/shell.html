@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="{{ locale }}" prefix="og: https://ogp.me/ns#" data-locale="{{ locale }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <meta name="google-site-verification" content="dkZK9eHsQfSSPDPVBYBTtfq1NjkgQ5NbTLIwLPRqKTs" />
+    <meta name="generator" content="FastAPI + Jinja2" />
+    {%- set _origin = request.url.scheme + '://' + request.url.netloc -%}
+    {%- set _canon = seo_canonical|default(_origin + request.url.path) -%}
+    {%- set _tab_title = title|default('Blog') -%}
+    {%- set _og_title = seo_title|default(_tab_title) -%}
+    {%- set _desc_raw = (seo_description or meta_description or _og_title) -%}
+    {%- set _type = seo_type|default('website') -%}
+    {%- set _site = seo_site_name|default('Blog', true) -%}
+    <title>{{ _tab_title|e }}</title>
+    <meta name="description" content="{{ _desc_raw|e }}" />
+    <link rel="canonical" href="{{ _canon|e }}" />
+    {% if get_available_locales %}
+      {% for loc in get_available_locales() %}
+        <link rel="alternate" hreflang="{{ loc.code }}" href="{{ _canon|e }}{% if not loc.is_default %}?lang={{ loc.code }}{% endif %}" />
+      {% endfor %}
+    {% else %}
+      <link rel="alternate" hreflang="ro" href="{{ _canon|e }}" />
+      <link rel="alternate" hreflang="en" href="{{ _canon|e }}?lang=en" />
+    {% endif %}
+    <link rel="icon" href="{{ site_favicon_rel|default(site_favicon_abs)|e }}" sizes="32x32" type="image/x-icon" />
+    <link rel="shortcut icon" href="{{ site_favicon_rel|default(site_favicon_abs)|e }}" type="image/x-icon" />
+    <link rel="apple-touch-icon" href="{{ site_brand_image_abs|e }}" />
+
+    <meta property="og:site_name" content="{{ _site|e }}" />
+    {% if site_brand_image_abs %}
+    <meta property="og:logo" content="{{ site_brand_image_abs|e }}" />
+    {% endif %}
+    <meta property="og:locale" content="{{ locale }}_{{ locale|upper }}" />
+    {% if get_available_locales %}
+      {% for loc in get_available_locales() %}
+        {% if loc.code != locale %}
+        <meta property="og:locale:alternate" content="{{ loc.code }}_{{ loc.code|upper }}" />
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    <meta property="og:type" content="{{ _type|e }}" />
+    <meta property="og:title" content="{{ _og_title|e }}" />
+    <meta property="og:description" content="{{ _desc_raw|e }}" />
+    <meta property="og:url" content="{{ _canon|e }}" />
+    {% if seo_image %}
+    <meta property="og:image" content="{{ seo_image|e }}" />
+    {% if seo_image.startswith("https://") %}
+    <meta property="og:image:secure_url" content="{{ seo_image|e }}" />
+    {% endif %}
+    <meta property="og:image:alt" content="{{ (seo_image_alt or _og_title)|e }}" />
+    {% if og_image_width and og_image_height %}
+    <meta property="og:image:width" content="{{ og_image_width }}" />
+    <meta property="og:image:height" content="{{ og_image_height }}" />
+    {% elif seo_image_is_card %}
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    {% endif %}
+    {% if og_image_type %}
+    <meta property="og:image:type" content="{{ og_image_type|e }}" />
+    {% endif %}
+    {% endif %}
+
+    <meta name="twitter:card" content="{% if seo_image %}summary_large_image{% else %}summary{% endif %}" />
+    {% if twitter_site %}
+    <meta name="twitter:site" content="{{ twitter_site|e }}" />
+    {% endif %}
+    <meta name="twitter:title" content="{{ _og_title|e }}" />
+    <meta name="twitter:description" content="{{ _desc_raw|e }}" />
+    <meta name="twitter:url" content="{{ _canon|e }}" />
+    {% if seo_image %}
+    <meta name="twitter:image" content="{{ seo_image|e }}" />
+    <meta name="twitter:image:alt" content="{{ (seo_image_alt or _og_title)|e }}" />
+    {% endif %}
+
+    {% block head_assets %}{% endblock %}
+    {% block head_extra %}{% endblock %}
+    {% if plugin_area_head %}{{ plugin_area_head | safe }}{% endif %}
+  </head>
+  <body class="bg-body text-body min-vh-100 d-flex flex-column theme-{{ active_theme()|e }}">
+    {% block navbar %}{% endblock %}
+    <main class="flex-grow-1">
+      {% block content %}{% endblock %}
+    </main>
+    {% block footer %}{% endblock %}
+    {% block scripts %}{% endblock %}
+    {% block scripts_extra %}{% endblock %}
+    
+    
+  </body>
+</html>

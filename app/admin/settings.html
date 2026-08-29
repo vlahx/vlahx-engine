@@ -1,0 +1,258 @@
+{% extends "admin/admin_base.html" %}
+
+{% block content %}
+<section class="py-4">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3 mb-4">
+    <div>
+      <h1 class="h3 mb-1">{{ t('admin.settings.title') }}</h1>
+      <p class="text-secondary mb-0">
+        {{ t('admin.settings.subtitle') }}
+      </p>
+    </div>
+  </div>
+
+  <form method="post" action="/admin/settings/save" class="mb-4">
+    <div class="row g-4 align-items-start">
+      <div class="col-12 col-lg-6">
+        <div class="card card-modern h-100">
+          <div class="card-body">
+            <h2 class="h5 mb-3">{{ t('admin.settings.nameAndDescription') }}</h2>
+            <div class="mb-3">
+              <label class="form-label">{{ t('admin.settings.siteName') }}</label>
+              <input class="form-control" type="text" name="site_display_name" value="{{ settings_site_name }}" placeholder="Ex: Blog" autocomplete="off" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">{{ t('admin.settings.siteTagline') }}</label>
+              <textarea class="form-control" name="site_tagline" rows="2" placeholder="Road journal, technical articles, and stories from the road.">{{ settings_site_tagline }}</textarea>
+            </div>
+
+            {% if active_locales and active_locales|length > 1 %}
+            <hr class="my-3" />
+            <h3 class="h6 mb-2">{{ t('admin.settings.translationsPerLanguage') }}</h3>
+            {% for loc in active_locales %}
+            <div class="mb-3 border p-3 rounded-3 bg-body-tertiary">
+              <h4 class="h6 mb-2 text-primary">🌐 {{ loc.name }} ({{ loc.code|upper }})</h4>
+              <div class="mb-2">
+                <label class="form-label small fw-semibold">Site Name ({{ loc.code|upper }})</label>
+                <input class="form-control form-control-sm" type="text" name="site_display_name_{{ loc.code }}" value="{{ localized_site_names.get(loc.code, '') }}" placeholder="Ex: Blog" />
+              </div>
+              <div>
+                <label class="form-label small fw-semibold">Site Tagline ({{ loc.code|upper }})</label>
+                <textarea class="form-control form-control-sm" name="site_tagline_{{ loc.code }}" rows="2" placeholder="Tagline for {{ loc.code }}">{{ localized_site_taglines.get(loc.code, '') }}</textarea>
+              </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <div class="vstack gap-4">
+          <div class="card card-modern">
+            <div class="card-body">
+              <h2 class="h5 mb-3">{{ t('admin.settings.articleUrls') }}</h2>
+              <div class="mb-0">
+                <label class="form-label">{{ t('admin.settings.publicArticlePath') }}</label>
+                <select class="form-select" name="flat_post_urls">
+                  <option value="0" {% if not flat_post_urls %}selected{% endif %}>{{ t('admin.settings.pathClassic') }}</option>
+                  <option value="1" {% if flat_post_urls %}selected{% endif %}>{{ t('admin.settings.pathShort') }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-modern">
+            <div class="card-body">
+              <h2 class="h5 mb-3">🏠 Prima pagină a site-ului (Root Router)</h2>
+              <div class="mb-0">
+                <label class="form-label">Alege ce se deschide când vizitatorii intră pe domeniul principal (<code>/</code>):</label>
+                <select class="form-select" name="homepage_mode">
+                  <option value="blog" {% if homepage_mode == 'blog' %}selected{% endif %}>📚 Feed articole Blog (Implicit)</option>
+                  {% for p in static_pages %}
+                  <option value="page:{{ p.slug|e }}" {% if homepage_mode == 'page:' ~ p.slug %}selected{% endif %}>
+                    📄 Pagină statică: {{ p.title|e }} ({{ p.slug|e }})
+                  </option>
+                  {% endfor %}
+                  {% if is_plugin_active and is_plugin_active('minishop') %}
+                  <option value="shop" {% if homepage_mode == 'shop' %}selected{% endif %}>🛍️ Magazin Online (Minishop)</option>
+                  {% endif %}
+                </select>
+                <small class="text-secondary d-block mt-2">
+                  Dacă alegi o pagină statică ca primă pagină, articolele de pe blog vor fi accesibile la <code>/blog</code>.
+                </small>
+              </div>
+            </div>
+          </div>
+          <div class="card card-modern">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h5 mb-0">⚡ Meniu Navigare Navbar</h2>
+                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="addNavRow()">
+                  ➕ Adaugă Link
+                </button>
+              </div>
+              <p class="text-secondary small mb-3">
+                Adaugă linkuri în bara de navigare. Poți pune rute interne (ex: <code>/blog</code>, <code>/shop</code>, <code>/despre-mine</code>) sau URL-uri externe cu deschidere în tab nou (<code>target="_blank"</code>).
+              </p>
+
+              <div id="nav-rows-container" class="vstack gap-2">
+                {% for link in nav_items %}
+                <div class="row g-2 align-items-center nav-row">
+                  <div class="col-4">
+                    <input type="text" name="nav_label" class="form-control form-control-sm" value="{{ link.label|e }}" placeholder="Etichetă (ex: Blog)" required />
+                  </div>
+                  <div class="col-5">
+                    <input type="text" name="nav_url" class="form-control form-control-sm" value="{{ link.url or link.href|e }}" placeholder="Cale/URL (ex: /blog sau https://...)" required />
+                  </div>
+                  <div class="col-2">
+                    <select name="nav_target" class="form-select form-select-sm">
+                      <option value="_self" {% if link.target == '_self' or not link.target %}selected{% endif %}>_self (Același tab)</option>
+                      <option value="_blank" {% if link.target == '_blank' %}selected{% endif %}>_blank (Tab nou ↗)</option>
+                    </select>
+                  </div>
+                  <div class="col-1 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.nav-row').remove()">🗑️</button>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+
+              <script>
+              function addNavRow() {
+                const container = document.getElementById('nav-rows-container');
+                const row = document.createElement('div');
+                row.className = 'row g-2 align-items-center nav-row mt-1';
+                row.innerHTML = `
+                  <div class="col-4">
+                    <input type="text" name="nav_label" class="form-control form-control-sm" placeholder="Etichetă (ex: Blog)" required />
+                  </div>
+                  <div class="col-5">
+                    <input type="text" name="nav_url" class="form-control form-control-sm" placeholder="Cale/URL (ex: /blog sau https://...)" required />
+                  </div>
+                  <div class="col-2">
+                    <select name="nav_target" class="form-select form-select-sm">
+                      <option value="_self" selected>_self (Același tab)</option>
+                      <option value="_blank">_blank (Tab nou ↗)</option>
+                    </select>
+                  </div>
+                  <div class="col-1 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.nav-row').remove()">🗑️</button>
+                  </div>
+                `;
+                container.appendChild(row);
+              }
+              </script>
+            </div>
+          </div>
+
+          <div class="card card-modern">
+            <div class="card-body">
+              <h2 class="h5 mb-3">{{ t('admin.settings.theme') }}</h2>
+              <div class="mb-0">
+                <label class="form-label">{{ t('admin.settings.activeTheme') }}</label>
+                <select class="form-select" name="active_theme">
+                  {% for t in installed_themes %}
+                  <option value="{{ t.slug|e }}" {% if t.slug == active_theme_slug %}selected{% endif %}>
+                    {{ t.name }} — {{ t.author }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="card card-modern">
+          <div class="card-body">
+            <div class="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-start align-items-md-center">
+              <div>
+                <h2 class="h5 mb-1">{{ t('admin.settings.postImageProcessing') }}</h2>
+                <p class="text-secondary small mb-0">{{ t('admin.settings.postImageProcessingSubtitle') }}</p>
+              </div>
+            </div>
+            <hr class="my-3" />
+            <div class="row g-3">
+              <div class="col-12 col-md-4">
+                <label class="form-label">{{ t('admin.settings.processingMode') }}</label>
+                <select class="form-select" name="post_image_crop_og">
+                  <option value="0" {% if not post_image_crop_og %}selected{% endif %}>{{ t('admin.settings.modeThumbnail') }}</option>
+                  <option value="1" {% if post_image_crop_og %}selected{% endif %}>{{ t('admin.settings.modeCrop') }}</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label">{{ t('admin.settings.maxEdge') }}</label>
+                <input class="form-control" type="number" name="post_image_max_edge" min="1" value="{{ post_image_max_edge }}" />
+              </div>
+              <div class="col-12 col-md-2">
+                <label class="form-label">{{ t('admin.settings.cropWidth') }}</label>
+                <input class="form-control" type="number" name="post_image_output_width" min="1" value="{{ post_image_output_width }}" />
+              </div>
+              <div class="col-12 col-md-2">
+                <label class="form-label">{{ t('admin.settings.cropHeight') }}</label>
+                <input class="form-control" type="number" name="post_image_output_height" min="1" value="{{ post_image_output_height }}" />
+              </div>
+            </div>
+            <div class="d-flex justify-content-end mt-4">
+              <button class="btn btn-primary" type="submit">{{ t('admin.settings.saveSettings') }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="card card-modern">
+    <div class="card-body">
+      <h2 class="h5 mb-3">{{ t('admin.settings.imagesPreviewUpload') }}</h2>
+      <p class="small text-secondary mb-4">{{ t('admin.settings.imagesHelp') }}</p>
+
+      {% macro image_block(label, key, path, empty_hint=None) %}
+      <div class="border rounded p-3 h-100">
+        <h3 class="h6 mb-3">{{ label }}</h3>
+        <div class="row g-3 align-items-center">
+          <div class="col-auto">
+            <div class="bg-light rounded d-flex align-items-center justify-content-center border" style="width: 88px; height: 88px; overflow: hidden;">
+              {% if path %}
+              <img src="{{ path }}" alt="" class="img-fluid" style="max-width: 88px; max-height: 88px; object-fit: contain;" loading="lazy" />
+              {% else %}
+              <span class="small text-secondary text-center px-1">{{ empty_hint or '—' }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="col">
+            <p class="small text-break text-secondary mb-2">{% if path %}<code>{{ path }}</code>{% else %}<span class="text-muted">{{ empty_hint or '—' }}</span>{% endif %}</p>
+            <form method="post" action="/admin/settings/upload-image" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
+              <input type="hidden" name="setting_key" value="{{ key }}" />
+              <input class="form-control form-control-sm" type="file" name="file" accept="image/*,.ico" style="max-width: 220px;" required />
+              <button class="btn btn-sm btn-primary" type="submit">{{ t('admin.actions.upload') }}</button>
+            </form>
+            <form method="post" action="/admin/settings/clear-image" class="mt-2">
+              <input type="hidden" name="setting_key" value="{{ key }}" />
+              <button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('{{ t('admin.settings.clearSetting') }}?');">{{ t('admin.settings.clearSetting') }}</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endmacro %}
+
+      <div class="row g-4">
+        <div class="col-12 col-lg-6">
+          {{ image_block("Favicon", "SITE_FAVICON_PATH", site_favicon_path) }}
+        </div>
+        <div class="col-12 col-lg-6">
+          {{ image_block("Imagine brand", "SITE_BRAND_IMAGE_PATH", site_brand_image_path) }}
+        </div>
+        <div class="col-12 col-lg-6">
+          {{ image_block("Icon navbar și hero", "SITE_NAV_ICON_PATH", site_nav_icon_path, "SVG implicit") }}
+        </div>
+        <div class="col-12 col-lg-6">
+          {{ image_block("Card Open Graph", "OG_CARD_IMAGE_PATH", og_card_image_path) }}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

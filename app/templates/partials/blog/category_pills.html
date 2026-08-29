@@ -1,0 +1,12 @@
+{% if categories %}
+<div class="d-flex flex-wrap gap-2 mb-4 align-items-center">
+  <a href="/" class="btn btn-sm {% if not current_category %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill fw-semibold px-3">
+    Toate Categoriile
+  </a>
+  {% for cat in categories %}
+  <a href="/category/{{ cat.slug or cat.name|lower }}" class="btn btn-sm {% if current_category == (cat.slug or cat.name|lower) or current_category == cat.name %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill fw-semibold px-3">
+    {{ cat.name }}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}

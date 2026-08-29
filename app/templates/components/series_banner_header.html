@@ -1,0 +1,21 @@
+<!-- Series Header Badge / Card -->
+<div class="card bg-primary bg-opacity-10 border-primary border-opacity-25 rounded-4 p-3 mb-4 shadow-sm">
+  <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2">
+    <div class="d-flex align-items-center gap-2">
+      <span class="fs-4">📚</span>
+      <div>
+        <div class="text-uppercase fw-bold text-primary small tracking-wide" style="font-size: 0.75rem;">
+          {{ t('series.series_label') if t else 'Serie de Articole' }}
+        </div>
+        <a href="{{ url_lang('/series/' + series_info.series_slug) }}" class="h5 fw-bold text-body text-decoration-none mb-0">
+          {{ series_info.series_title }}
+        </a>
+      </div>
+    </div>
+    <div>
+      <span class="badge bg-primary text-white fs-6 px-3 py-2 rounded-pill shadow-sm">
+        {{ t('series.part_label') if t else 'Partea' }} {{ series_info.current_part }} / {{ series_info.total_parts }}
+      </span>
+    </div>
+  </div>
+</div>

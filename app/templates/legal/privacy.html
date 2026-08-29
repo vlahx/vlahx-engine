@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <div class="card card-modern shadow-sm border-0 p-4 p-md-5">
+        <div class="d-flex align-items-center gap-3 mb-4 border-bottom pb-3">
+          <span class="fs-1">🔒</span>
+          <div>
+            <h1 class="h2 fw-bold mb-1">{{ t("legal.privacy.title") if t else "Politica de Confidențialitate" }}</h1>
+            <p class="text-secondary mb-0">Platforma VlahX — Transparență & Protecția Datelor cu Caracter Personal (GDPR)</p>
+          </div>
+        </div>
+
+        <div class="article-content lh-lg text-body">
+          <p class="lead fw-semibold text-secondary mb-4">
+            La <strong>VlahX</strong>, confidențialitatea și securitatea datelor tale cu caracter personal sunt o prioritate fundamentală. Această politică explică detaliat ce date colectăm, cum le utilizăm și cum îți poți exercita dreptul de acces, rectificare și <strong>ștergere definitivă (Dreptul de a fi uitat)</strong>.
+          </p>
+
+          <h3 class="h5 fw-bold mt-4 mb-3 text-dark">1. Datele Colectate și Scopul Prelucrării</h3>
+          <p>Pentru a-ți oferi acces la funcționalitățile platformei, colectăm următoarele categorii de date:</p>
+          <ul>
+            <li><strong>Autentificare clasică (Email & Parolă)</strong>: Adresa de email, numele și prenumele, parola securizată (stocată exclusiv sub formă de hash criptografic nedescifrabil PBKDF2-SHA256).</li>
+            <li><strong>Autentificare Socială (Google OAuth2 / Telegram Login)</strong>: Identificatorul unic furnizat de provider, adresa de email asociată și numele de profil.</li>
+            <li><strong>Date de Profil Opționale</strong>: Bio, număr de telefon, intenția de onboarding și imaginea de avatar.</li>
+            <li><strong>Conținut generat de utilizator</strong>: Comentarii, reacții și fișiere media încărcate pe platformă.</li>
+          </ul>
+
+          <h3 class="h5 fw-bold mt-4 mb-3 text-dark">2. Module Cookie și Sesiuni</h3>
+          <p>Folosim cookie-uri de sesiune esențiale pentru:</p>
+          <ul>
+            <li>Menținerea stării de autentificare în timpul navigării.</li>
+            <li>Reținerea preferințelor de limbă (ex: Română / Engleză).</li>
+          </ul>
+          <p class="text-secondary small">Nu folosim cookie-uri de urmărire terță parte pentru profilare publicitară invazivă.</p>
+
+          <h3 class="h5 fw-bold mt-4 mb-3 text-dark">3. Drepturile Tale GDPR & Dreptul de a fi Uitat</h3>
+          <p>În conformitate cu Regulamentul General privind Protecția Datelor (GDPR - Regulamentul UE 2016/679), beneficiezi de:</p>
+          <ul>
+            <li><strong>Dreptul de Acces & Rectificare</strong>: Îți poți edita oricând datele de profil direct din secțiunea <a href="/profile" class="fw-bold text-decoration-none">Profilul Meu</a>.</li>
+            <li><strong>Dreptul la Ștergerea Datelor (Right to be Forgotten)</strong>: Îți poți solicita ștergerea contului în orice moment din profil.</li>
+          </ul>
+
+          <div class="alert alert-info border-0 rounded-3 p-4 my-4">
+            <h4 class="h6 fw-bold mb-2">⏳ Perioada de Grație de 30 de Zile & Ștergerea Definitivă (Purge)</h4>
+            <p class="mb-2">
+              Pentru a preveni ștergerile accidentale sau accesul neautorizat, la solicitarea de ștergere contul tău intră într-o <strong>perioadă de grație de 30 de zile</strong>:
+            </p>
+            <ul class="mb-2">
+              <li>În timpul celor 30 de zile, contul tău este dezactivat și ascuns complet din spațiul public.</li>
+              <li>Dacă te răzgândești, te poți reautentifica oricând în intervalul de 30 de zile pentru a-ți **anula ștergerea și recupera contul**.</li>
+              <li>La expirarea celor 30 de zile, sistemul nostru automat execută <strong>purge-ul definitiv</strong>: eliminarea ireversibilă a tuturor comentariilor, fișierelor media încărcate de pe disc, imaginii de avatar și ștergerea definitivă a utilizatorului din baza de date.</li>
+            </ul>
+          </div>
+
+          <h3 class="h5 fw-bold mt-4 mb-3 text-dark">4. Contact & Suport Protecția Datelor</h3>
+          <p>Dacă ai întrebări cu privire la prelucrarea datelor tale sau dorești asistență suplimentară, ne poți contacta oricând pe canalul oficial VlahX sau la echipa de administrare.</p>
+
+          <div class="mt-4 pt-3 border-top text-secondary small">
+            Ultima actualizare: {{ now.strftime('%d.%m.%Y') if now else '28.08.2026' }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

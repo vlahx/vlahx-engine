@@ -1,0 +1,159 @@
+{% extends "admin/admin_base.html" %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 fw-bold mb-1">👥 {{ t('admin.users.title') }}</h1>
+      <p class="text-secondary mb-0">{{ t('admin.users.subtitle') }}</p>
+    </div>
+  </div>
+
+  {% if msg %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      {{ msg }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endif %}
+  {% if err %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+      {{ err }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endif %}
+
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-body-tertiary fw-bold py-3">
+      📋 {{ t('admin.users.registeredUsers') }}
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>{{ t('admin.users.colUser') }}</th>
+            <th>{{ t('admin.users.colTelegram') }}</th>
+            <th class="text-center">{{ t('admin.users.colCurrentRoles') }}</th>
+            <th class="text-center">{{ t('admin.users.colAssignRoles') }}</th>
+            <th class="text-end">{{ t('admin.users.colActionsDate') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          {% set u_roles = u.roles_list if u.roles_list else (u.role.split(',') if u.role else ['reader']) %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-3">
+                {% if u.image_url %}
+                  <img src="{{ u.image_url }}" alt="{{ u.first_name }}" class="rounded-circle" width="40" height="40">
+                {% else %}
+                  <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">
+                    {{ (u.first_name or u.username or 'U')[0]|upper }}
+                  </div>
+                {% endif %}
+                <div>
+                  <div class="fw-bold">{{ u.first_name or '' }} {{ u.last_name or '' }}</div>
+                  <div class="small text-secondary">ID: {{ u.oauth_id }}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              {% if u.username %}
+                <span class="badge bg-light text-dark border">@{{ u.username }}</span>
+              {% else %}
+                <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <div class="d-flex flex-wrap justify-content-center gap-1">
+                {% for r in u_roles %}
+                  {% set clean_r = r.strip().lower() %}
+                  {% if clean_r == 'admin' %}
+                    <span class="badge bg-danger shadow-sm">👑 {{ t('admin.roles.admin') }}</span>
+                  {% elif clean_r == 'editor' %}
+                    <span class="badge bg-primary shadow-sm">✍️ {{ t('admin.roles.editor') }}</span>
+                  {% elif clean_r == 'developer' %}
+                    <span class="badge text-white shadow-sm" style="background-color: #6f42c1;">👨‍💻 Developer</span>
+                  {% elif clean_r == 'seller' %}
+                    <span class="badge bg-success shadow-sm">🛒 {{ t('admin.roles.seller') }}</span>
+                  {% elif clean_r == 'author' %}
+                    <span class="badge bg-info text-dark shadow-sm">📝 {{ t('admin.roles.author') }}</span>
+                  {% elif clean_r == 'reader' or clean_r == 'user' %}
+                    <span class="badge bg-secondary shadow-sm">💬 {{ t('admin.roles.reader') }}</span>
+                  {% else %}
+                    <span class="badge bg-warning text-dark shadow-sm">⏳ {{ t('admin.roles.pending') }}</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+              {% if u.dev_status == 'pending' %}
+              <div class="mt-2 p-2 border border-warning rounded bg-warning bg-opacity-10 text-start" style="max-width: 220px; margin: 0 auto;">
+                <div class="small fw-bold text-dark mb-1">⏳ Cerere VlahX Developer</div>
+                {% if u.dev_notes %}
+                <div class="small text-secondary mb-2" style="font-size: 0.78rem;"><em>"{{ u.dev_notes }}"</em></div>
+                {% endif %}
+                <div class="d-flex gap-1 justify-content-center">
+                  <form action="/admin/users/{{ u.id }}/approve-developer" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-success py-0 px-2 small">✅ Aprobă</button>
+                  </form>
+                  <form action="/admin/users/{{ u.id }}/reject-developer" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2 small">❌ Respinge</button>
+                  </form>
+                </div>
+              </div>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <form action="/admin/users/{{ u.id }}/role" method="post" class="p-2 border rounded bg-body-tertiary text-start d-inline-block" style="min-width: 240px;">
+                <div class="small fw-bold mb-1 text-center">{{ t('admin.users.checkRoles') }}</div>
+                <div class="d-flex flex-column gap-1 small">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="roles" value="admin" id="r_admin_{{ u.id }}" {% if 'admin' in u_roles %}checked{% endif %}>
+                    <label class="form-check-label fw-semibold text-danger" for="r_admin_{{ u.id }}">👑 {{ t('admin.roles.admin') }}</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="roles" value="developer" id="r_dev_{{ u.id }}" {% if 'developer' in u_roles %}checked{% endif %}>
+                    <label class="form-check-label fw-semibold" style="color: #6f42c1;" for="r_dev_{{ u.id }}">👨‍💻 Developer</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="roles" value="editor" id="r_editor_{{ u.id }}" {% if 'editor' in u_roles %}checked{% endif %}>
+                    <label class="form-check-label fw-semibold text-primary" for="r_editor_{{ u.id }}">✍️ {{ t('admin.roles.editor') }}</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="roles" value="seller" id="r_seller_{{ u.id }}" {% if 'seller' in u_roles %}checked{% endif %}>
+                    <label class="form-check-label fw-semibold text-success" for="r_seller_{{ u.id }}">🛒 {{ t('admin.roles.seller') }}</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="roles" value="author" id="r_author_{{ u.id }}" {% if 'author' in u_roles %}checked{% endif %}>
+                    <label class="form-check-label fw-semibold text-info" for="r_author_{{ u.id }}">📝 {{ t('admin.roles.author') }}</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="roles" value="reader" id="r_reader_{{ u.id }}" {% if 'reader' in u_roles or 'user' in u_roles %}checked{% endif %}>
+                    <label class="form-check-label text-secondary" for="r_reader_{{ u.id }}">💬 {{ t('admin.roles.reader') }}</label>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-sm btn-success w-100 mt-2 fw-semibold">
+                  💾 {{ t('admin.users.saveRoles') }}
+                </button>
+              </form>
+            </td>
+            <td class="text-end">
+              <div class="d-flex align-items-center justify-content-end gap-3">
+                <span class="text-secondary small">{{ u.created_at.strftime('%d.%m.%Y %H:%M') if u.created_at else '—' }}</span>
+                {% if request.state.user_id != u.id %}
+                <form action="/admin/users/{{ u.id }}/delete" method="post" class="d-inline" onsubmit="return confirm('{{ t('admin.users.confirmDelete') }} {{ u.first_name or u.username or u.oauth_id }}?')">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ t('admin.actions.delete') }}">
+                    🗑️ {{ t('admin.actions.delete') }}
+                  </button>
+                </form>
+                {% else %}
+                <span class="badge bg-secondary opacity-50" title="{{ t('admin.users.you') }}">{{ t('admin.users.you') }}</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

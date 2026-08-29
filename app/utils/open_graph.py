@@ -18,25 +18,29 @@ OG_DESCRIPTION_MAX_CHARS = 300
 
 def public_site_origin(request=None) -> str:
     """Originea absolută (scheme + host, fără slash final). Respectă HTTPS prin Reverse Proxy."""
-    if request is not None and hasattr(request, "base_url"):
-        headers = getattr(request, "headers", {})
-        proto = headers.get("x-forwarded-proto", "").strip().lower()
-        base_str = str(request.base_url).rstrip("/")
-        if proto == "https" and base_str.startswith("http://"):
-            base_str = "https://" + base_str[7:]
-        if base_str and "camionagiul" not in base_str:
-            return base_str
     url = get_public_site_url()
     if url and "camionagiul" not in url:
         return url.rstrip("/")
     if request is not None and hasattr(request, "base_url"):
         headers = getattr(request, "headers", {})
         proto = headers.get("x-forwarded-proto", "").strip().lower()
+        host = headers.get("x-forwarded-host") or headers.get("host") or ""
+        host = str(host).split(",")[0].strip()
+
+        # Pentru domeniu public sau proxy cu https
+        if proto == "https" or (host and not host.startswith("127.") and not host.startswith("localhost") and not host.startswith("192.168.")):
+            scheme = "https"
+        else:
+            scheme = str(request.base_url.scheme or "http")
+
+        if host:
+            return f"{scheme}://{host}".rstrip("/")
+
         base_str = str(request.base_url).rstrip("/")
-        if proto == "https" and base_str.startswith("http://"):
+        if scheme == "https" and base_str.startswith("http://"):
             base_str = "https://" + base_str[7:]
         return base_str
-    return ""
+    return "https://vlahx.org"
 
 
 def truncate_og_description(text: str, max_chars: int = OG_DESCRIPTION_MAX_CHARS) -> str:

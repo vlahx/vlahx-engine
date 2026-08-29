@@ -19,7 +19,7 @@
       {% endif %}
     </div>
     <h2 class="h6 mb-2">
-      <a href="{{ post_public_path(post.slug) }}" class="stretched-link text-decoration-none text-body fw-semibold">{{ post.title }}</a>
+      <a href="{{ url_lang(post_public_path(post.slug)) }}" class="stretched-link text-decoration-none text-body fw-semibold">{{ post.title }}</a>
     </h2>
     <p class="text-secondary mb-0 flex-grow-1">{{ post.excerpt or "" }}</p>
   </div>

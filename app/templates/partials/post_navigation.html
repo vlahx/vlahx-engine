@@ -1,0 +1,33 @@
+{% if prev_post or next_post %}
+<nav class="post-navigation border-top border-bottom py-4 my-4" aria-label="Navigare articole">
+  <div class="row g-3 align-items-stretch">
+    <!-- Articolul Anterior (Stânga) -->
+    <div class="col-6 text-start d-flex flex-column justify-content-center">
+      {% if prev_post %}
+        <a href="{{ url_lang(post_public_path(prev_post.slug)) }}" class="text-decoration-none d-block p-3 rounded-4 bg-body-tertiary border hover-shadow transition-all h-100">
+          <span class="small text-secondary fw-semibold d-block mb-1">
+            ← {{ t('blog.prevPost') if t else 'Articolul anterior' }}
+          </span>
+          <span class="fw-bold text-body d-block text-truncate fs-6">
+            {{ prev_post.title }}
+          </span>
+        </a>
+      {% endif %}
+    </div>
+
+    <!-- Articolul Următor (Dreapta) -->
+    <div class="col-6 text-end d-flex flex-column justify-content-center">
+      {% if next_post %}
+        <a href="{{ url_lang(post_public_path(next_post.slug)) }}" class="text-decoration-none d-block p-3 rounded-4 bg-body-tertiary border hover-shadow transition-all h-100">
+          <span class="small text-secondary fw-semibold d-block mb-1">
+            {{ t('blog.nextPost') if t else 'Articolul următor' }} →
+          </span>
+          <span class="fw-bold text-body d-block text-truncate fs-6">
+            {{ next_post.title }}
+          </span>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+{% endif %}

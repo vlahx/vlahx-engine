@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+  <!-- Header Profil -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4 bg-body-tertiary">
+    <div class="card-body p-4 p-md-5">
+      <div class="d-flex flex-column flex-md-row align-items-center gap-4">
+        <div class="position-relative">
+          {% if user.image_url %}
+          <img src="{{ user.image_url }}" alt="{{ user.first_name or user.username }}" class="rounded-circle object-fit-cover shadow" width="100" height="100">
+          {% else %}
+          <div class="rounded-circle bg-primary bg-opacity-20 text-primary d-flex align-items-center justify-content-center fs-1 fw-bold shadow" style="width: 100px; height: 100px;">
+            {{ (user.first_name or user.username or 'U')[0]|upper }}
+          </div>
+          {% endif %}
+          <span class="position-absolute bottom-0 end-0 bg-success border border-white rounded-circle p-2" title="{{ t('profile.activeAccount') }}"></span>
+        </div>
+
+        <div class="text-center text-md-start flex-grow-1">
+          <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-start gap-2 mb-1">
+            <h2 class="fw-bold mb-0">{{ user.first_name or user.username or t('profile.member') }} {{ user.last_name or '' }}</h2>
+            {% if 'admin' in user.role %}
+            <span class="badge bg-danger text-white me-1">⚡ Admin</span>
+            {% endif %}
+            {% if 'developer' in user.role %}
+            <span class="badge text-white me-1" style="background-color: #6f42c1;">👨‍💻 Developer</span>
+            {% endif %}
+            {% if 'editor' in user.role or 'author' in user.role %}
+            <span class="badge bg-primary text-white me-1">📝 Author</span>
+            {% endif %}
+            {% if 'seller' in user.role %}
+            <span class="badge bg-success text-white me-1">🛒 Seller</span>
+            {% endif %}
+            {% if not ('admin' in user.role or 'developer' in user.role or 'editor' in user.role or 'author' in user.role or 'seller' in user.role) %}
+            <span class="badge bg-secondary text-white">👤 {{ t('profile.member') }}</span>
+            {% endif %}
+          </div>
+          <p class="text-secondary small mb-2">
+            📧 {{ user.email or 'Connected with ' ~ user.provider|title }} • 📅 {{ t('profile.memberSince') }} {{ user.created_at.strftime('%d.%m.%Y') if user.created_at else t('profile.recent') }}
+          </p>
+          {% if user.bio %}
+          <p class="text-body small mb-0 max-w-600" style="white-space: pre-line;">{{ user.bio }}</p>
+          {% endif %}
+        </div>
+
+        <div class="d-flex gap-2">
+          {% if has_role('admin', 'editor', 'author', 'developer', 'seller') %}
+          <a href="/admin" class="btn btn-outline-primary btn-sm fw-semibold px-3">{{ t('profile.adminPanel') }}</a>
+          {% endif %}
+          <a href="/auth/logout" class="btn btn-outline-secondary btn-sm px-3">{{ t('profile.logout') }}</a>
+        </div>
+      </div>
+    </div>
+  {% if request.query_params.get('msg') %}
+  <div class="alert alert-success alert-dismissible fade show rounded-4 shadow-sm mb-4" role="alert">
+    <strong>✅ Succes:</strong> {{ request.query_params.get('msg') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+
+  <!-- Hosting Provisioning & Request Banner Card -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4 p-4 bg-body-tertiary border">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="fs-4">🌐</span>
+          <h4 class="fw-bold mb-0 text-body">Găzduire Website & Magazin (Hosting pe RPi)</h4>
+        </div>
+        <p class="text-secondary small mb-0 mt-1">Vrei propriul tău website sau magazin găzduit direct pe infrastructura noastră cu certificat SSL automat și verificator de domeniu?</p>
+      </div>
+      <div>
+        <a href="/hosting" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold shadow-sm text-white">
+          🚀 Solicită Găzduire Site →
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {% if has_role('admin', 'developer') %}
+  <!-- Developer Publisher Repo Action Card -->
+  <div class="card border-primary border-opacity-50 bg-primary bg-opacity-10 rounded-4 p-4 mb-4 shadow-sm">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="badge text-white px-3 py-2 fs-6 rounded-pill" style="background-color: #6f42c1;">👨‍💻 Rol Dezvoltator Activ</span>
+          <span class="badge bg-success bg-opacity-25 text-success border border-success">✓ Editor & Publicator</span>
+        </div>
+        <h5 class="fw-bold mb-1 text-body">🚀 Panou Publicare Repo & Încărcare Pachete</h5>
+        <p class="text-secondary small mb-0">Ai obținut calitatea de Dezvoltator. Accesează Panoul de Publicare pe Repo Store pentru a încărca pachete (.zip).</p>
+      </div>
+      <a href="/auth/sso-redirect" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold shadow-sm text-white">
+        🏪 Deschide Repo Store →
+      </a>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if request.query_params.get('requested') == '1' %}
+  <div class="alert alert-success d-flex align-items-center gap-2 mb-4 rounded-4 shadow-sm" role="alert">
+    <span>✅ Solicitarea a fost trimisă cu succes către echipa VlahX! Notificare expediată pe Telegram.</span>
+  </div>
+  {% endif %}
+
+  {% if user.dev_status == 'pending' %}
+  <div class="alert alert-warning d-flex align-items-center gap-2 mb-4 rounded-4 shadow-sm" role="alert">
+    <span>⏳ Solicitarea ta pentru rolul de <strong>VlahX Developer</strong> este în curs de examinare de către administrator.</span>
+  </div>
+  {% elif user.dev_status == 'approved' %}
+  <div class="alert alert-success d-flex align-items-center gap-2 mb-4 rounded-4 shadow-sm" role="alert">
+    <span>🎉 Felicitări! Contul tău este verificat ca <strong>VlahX Developer</strong>.</span>
+  </div>
+  {% elif user.dev_status == 'rejected' %}
+  <div class="alert alert-secondary d-flex align-items-center gap-2 mb-4 rounded-4 shadow-sm" role="alert">
+    <span>❌ Solicitarea anterioară pentru rolul de Developer a fost respinsă. Poți aplica din nou cu detalii suplimentare.</span>
+  </div>
+  {% endif %}
+
+  <!-- Cerere Schimbare Rol (dacă nu e deja Admin) -->
+  {% if user.role != 'admin' %}
+  <div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-4">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <h5 class="fw-bold mb-1">{{ t('profile.requestRole') }}</h5>
+          <p class="text-secondary small mb-0">{{ t('profile.requestRoleHelp') }}</p>
+        </div>
+        <button class="btn btn-outline-primary btn-sm fw-semibold rounded-pill px-3" type="button" data-bs-toggle="collapse" data-bs-target="#roleRequestCollapse" aria-expanded="false" aria-controls="roleRequestCollapse">
+          {{ t('profile.requestRoleBtn') }}
+        </button>
+      </div>
+
+      <div class="collapse mt-3" id="roleRequestCollapse">
+        <form action="/profile/request-role" method="POST" class="p-3 bg-body-tertiary rounded-3 border">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">{{ t('profile.selectRole') }}</label>
+            <select name="requested_role" class="form-select form-select-sm" required>
+              <option value="developer">👨‍💻 Developer (Programator / Acces Repo &amp; Module)</option>
+              <option value="author">✍️ Author (Scrie articole și ghiduri)</option>
+              <option value="editor">📝 Editor (Gestionare conținut)</option>
+              <option value="seller">🛍️ Seller (Vânzător Magazin)</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">{{ t('profile.motivation') }}</label>
+            <textarea name="motivation" class="form-control form-control-sm" rows="3" placeholder="Descrie pe scurt experiența ta, link-uri către GitHub/portofoliu sau de ce dorești acest rol..."></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-sm fw-bold px-4 rounded-pill">
+            {{ t('profile.sendRequest') }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Navigare Tab-uri Profil + Plugin Area for Profile Tabs -->
+  <ul class="nav nav-pills gap-2 mb-4 border-bottom pb-3" id="profileTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active fw-bold" id="tab-info-btn" data-bs-toggle="tab" data-bs-target="#tab-info" type="button" role="tab">
+        {{ t('profile.tabInfo') }}
+      </button>
+    </li>
+    {% if plugin_area_profile_tabs %}
+      {{ plugin_area_profile_tabs | safe }}
+    {% endif %}
+  </ul>
+
+  <div class="tab-content" id="profileTabsContent">
+    <!-- Tab 1: Detalii & Editare Profil -->
+    <div class="tab-pane fade show active" id="tab-info" role="tabpanel">
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <h4 class="fw-bold mb-4">{{ t('profile.editTitle') }}</h4>
+
+          {% if request.query_params.get('updated') == '1' %}
+          <div class="alert alert-success d-flex align-items-center gap-2 mb-4" role="alert">
+            <span>✅ {{ t('profile.updatedSuccess') }}</span>
+          </div>
+          {% endif %}
+
+          <form action="/profile/update" method="POST" enctype="multipart/form-data">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">{{ t('profile.firstName') }}</label>
+                <input type="text" name="first_name" class="form-control" value="{{ user.first_name or '' }}" required>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">{{ t('profile.lastName') }}</label>
+                <input type="text" name="last_name" class="form-control" value="{{ user.last_name or '' }}">
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">{{ t('profile.email') }}</label>
+                <input type="email" name="email" class="form-control" value="{{ user.email or '' }}" placeholder="email@domain.com">
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">{{ t('profile.phone') }}</label>
+                <input type="tel" name="phone" class="form-control" value="{{ user.phone or '' }}" placeholder="+1234567890">
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small fw-semibold">🖼️ Poza de Profil / Avatar</label>
+                <div class="p-3 border rounded-3 bg-body-tertiary">
+                  <div class="d-flex flex-column flex-sm-row align-items-center gap-3">
+                    <div class="position-relative">
+                      {% if user.image_url %}
+                      <img src="{{ user.image_url }}" id="avatarEditPreview" alt="Avatar" class="rounded-circle object-fit-cover shadow-sm border" width="75" height="75">
+                      {% else %}
+                      <div id="avatarEditPreviewFallback" class="rounded-circle bg-primary bg-opacity-20 text-primary d-flex align-items-center justify-content-center fs-2 fw-bold shadow-sm" style="width: 75px; height: 75px;">
+                        {{ (user.first_name or user.username or 'U')[0]|upper }}
+                      </div>
+                      {% endif %}
+                    </div>
+                    <div class="flex-grow-1 w-100">
+                      <div class="mb-2">
+                        <label class="form-label micro text-secondary mb-1 fw-semibold">📁 Încarcă o poză nouă din calculator (JPG, PNG, GIF, WebP)</label>
+                        <input type="file" name="avatar_file" accept="image/png,image/jpeg,image/gif,image/webp" class="form-control form-control-sm" id="avatarFileInput">
+                      </div>
+                      <div>
+                        <label class="form-label micro text-secondary mb-1 fw-semibold">🔗 Sau introdu un URL extern</label>
+                        <input type="url" name="image_url" class="form-control form-control-sm" value="{{ user.image_url or '' }}" placeholder="https://site.com/avatar.jpg">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small fw-semibold">{{ t('profile.bio') }}</label>
+                <textarea name="bio" class="form-control" rows="3" placeholder="{{ t('profile.bioPlaceholder') }}">{{ user.bio or '' }}</textarea>
+              </div>
+
+              <div class="col-12 mt-4">
+                <button type="submit" class="btn btn-primary fw-bold px-4 py-2 shadow-sm">
+                  {{ t('profile.saveChanges') }}
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <script>
+            document.getElementById('avatarFileInput')?.addEventListener('change', function(e) {
+              const file = e.target.files[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                  const img = document.getElementById('avatarEditPreview');
+                  const fallback = document.getElementById('avatarEditPreviewFallback');
+                  if (img) {
+                    img.src = evt.target.result;
+                  } else if (fallback) {
+                    const newImg = document.createElement('img');
+                    newImg.id = 'avatarEditPreview';
+                    newImg.src = evt.target.result;
+                    newImg.className = 'rounded-circle object-fit-cover shadow-sm border';
+                    newImg.width = 75;
+                    newImg.height = 75;
+                    fallback.parentNode.replaceChild(newImg, fallback);
+                  }
+                };
+                reader.readAsDataURL(file);
+              }
+            });
+          </script>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plugin Area for Profile Tab Contents -->
+    {% if plugin_area_profile_content %}
+      {{ plugin_area_profile_content | safe }}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

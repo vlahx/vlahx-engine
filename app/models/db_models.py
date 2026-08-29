@@ -22,6 +22,10 @@ class User(Base):
     first_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     last_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    verification_token: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    onboarding_intent: Mapped[str | None] = mapped_column(String(64), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -29,6 +33,7 @@ class User(Base):
     dev_status: Mapped[str | None] = mapped_column(String(32), nullable=True, default="none")
     dev_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     dev_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deletion_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
 
     @property
     def roles_list(self) -> list[str]:
@@ -53,6 +58,8 @@ class Category(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     slug: Mapped[str] = mapped_column(String(160), unique=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True, default="")
+    translations_json: Mapped[str | None] = mapped_column(Text, nullable=True, default="{}")
     parent_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
 
     parent: Mapped[Optional["Category"]] = relationship(

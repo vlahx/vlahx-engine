@@ -1,0 +1,52 @@
+<!-- Series Footer Dynamic Navigation Cards -->
+<div class="card bg-body-tertiary border rounded-4 p-4 mb-5 shadow-sm">
+  <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3">
+    <div class="d-flex align-items-center gap-2">
+      <span class="fs-4">📚</span>
+      <h5 class="fw-bold text-body mb-0">{{ series_info.series_title }}</h5>
+    </div>
+    <a href="{{ url_lang('/series/' + series_info.series_slug) }}" class="btn btn-outline-primary btn-sm rounded-pill font-monospace small">
+      {{ t('series.all_episodes') if t else 'Vezi Toate Episoadele' }} ({{ series_info.total_parts }})
+    </a>
+  </div>
+
+  <div class="row g-3">
+    <!-- Previous Episode Card -->
+    <div class="col-md-6">
+      {% if series_info.prev_post %}
+        <a href="{{ url_lang(post_public_path(series_info.prev_post.slug)) }}" class="card h-100 bg-body border text-decoration-none rounded-3 p-3 shadow-sm hover-shadow transition-all">
+          <div class="text-secondary small mb-1 d-flex align-items-center gap-1">
+            <i class="bi bi-arrow-left"></i> {{ t('series.prev_episode') if t else 'Episodul Anterior' }} (Partea {{ series_info.prev_post.part_number }})
+          </div>
+          <div class="fw-bold text-body">
+            {{ series_info.prev_post.title }}
+          </div>
+        </a>
+      {% else %}
+        <div class="card h-100 bg-body-secondary border text-muted rounded-3 p-3 opacity-50">
+          <div class="small mb-1"><i class="bi bi-flag-fill me-1"></i> Primul Episod din Serie</div>
+          <div class="fw-medium small">Acesta este începutul acestei serii.</div>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Next Episode Card -->
+    <div class="col-md-6">
+      {% if series_info.next_post %}
+        <a href="{{ url_lang(post_public_path(series_info.next_post.slug)) }}" class="card h-100 bg-primary text-white text-decoration-none rounded-3 p-3 shadow-sm hover-shadow transition-all">
+          <div class="text-white-50 small mb-1 d-flex align-items-center justify-content-end gap-1">
+            {{ t('series.next_episode') if t else 'Episodul Următor' }} (Partea {{ series_info.next_post.part_number }}) <i class="bi bi-arrow-right"></i>
+          </div>
+          <div class="fw-bold text-white text-end">
+            {{ series_info.next_post.title }}
+          </div>
+        </a>
+      {% else %}
+        <div class="card h-100 bg-body-secondary border text-muted rounded-3 p-3 text-end opacity-50">
+          <div class="small mb-1"><i class="bi bi-check-circle-fill me-1"></i> Ultimul Episod</div>
+          <div class="fw-medium small">Ați ajuns la finalul acestei serii.</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>

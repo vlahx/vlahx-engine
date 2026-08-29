@@ -4,20 +4,40 @@
   {% include "partials/blog/hero.html" %}
 
   <div class="container">
-    {% if current_category or current_author %}
+    <!-- Search Input Form -->
+    <div class="row justify-content-center mb-4">
+      <div class="col-md-8 col-lg-6">
+        <form action="/search" method="GET">
+          <div class="input-group shadow-sm rounded-pill border overflow-hidden bg-body">
+            <span class="input-group-text bg-transparent border-0 ps-3 text-secondary">🔍</span>
+            <input type="text" name="q" class="form-control border-0 shadow-none py-2" placeholder="Caută articole în toate limbile..." value="{{ search_query or '' }}">
+            {% if current_category %}<input type="hidden" name="category" value="{{ current_category }}">{% endif %}
+            <button type="submit" class="btn btn-primary fw-semibold px-4 rounded-pill m-1">Caută</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% if current_category or current_author or search_query %}
     <div class="card bg-body-tertiary border-0 shadow-sm mb-4">
       <div class="card-body py-2 px-3 d-flex align-items-center gap-2 flex-wrap">
         <span class="small text-secondary fw-semibold me-1">Filtre active:</span>
+        {% if search_query %}
+          <span class="badge bg-secondary d-inline-flex align-items-center gap-1 py-2 px-3">
+            🔍 Căutare: "{{ search_query }}"
+            <a href="/?{% if current_category %}category={{ current_category|urlencode }}{% endif %}{% if current_author %}&author={{ current_author|urlencode }}{% endif %}" class="text-white text-decoration-none ms-2 fw-bold" title="Șterge căutarea">✕</a>
+          </span>
+        {% endif %}
         {% if current_category %}
           <span class="badge bg-primary d-inline-flex align-items-center gap-1 py-2 px-3">
             📁 Categorie: {{ current_category }}
-            <a href="/?{% if current_author %}author={{ current_author|urlencode }}{% endif %}" class="text-white text-decoration-none ms-2 fw-bold" title="Elimină acest filtru">✕</a>
+            <a href="/?{% if search_query %}q={{ search_query|urlencode }}{% endif %}{% if current_author %}&author={{ current_author|urlencode }}{% endif %}" class="text-white text-decoration-none ms-2 fw-bold" title="Elimină acest filtru">✕</a>
           </span>
         {% endif %}
         {% if current_author %}
           <span class="badge bg-info text-dark d-inline-flex align-items-center gap-1 py-2 px-3">
             ✍️ Autor: {{ current_author }}
-            <a href="/?{% if current_category %}category={{ current_category|urlencode }}{% endif %}" class="text-dark text-decoration-none ms-2 fw-bold" title="Elimină acest filtru">✕</a>
+            <a href="/?{% if search_query %}q={{ search_query|urlencode }}{% endif %}{% if current_category %}&category={{ current_category|urlencode }}{% endif %}" class="text-dark text-decoration-none ms-2 fw-bold" title="Elimină acest filtru">✕</a>
           </span>
         {% endif %}
         <a href="/" class="btn btn-sm btn-link text-secondary text-decoration-none p-0 ms-auto" style="font-size:0.85rem;">Resetare filtre</a>
@@ -25,7 +45,7 @@
     </div>
   {% endif %}
 
-  {% include "partials/blog/category_pills.html" %}
+  {% include "partials/blog/category_pills.html" ignore missing %}
 
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5">
       {% for post in posts %}

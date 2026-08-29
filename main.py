@@ -14,6 +14,7 @@ from app.routers.admin import build_admin_router
 from app.routers.api import router as api_router
 from app.routers.blog import build_blog_router, serve_blog_post
 from app.routers.auth import build_auth_router
+from app.routers.hosting import build_hosting_router
 from app.routers.plugin_settings import build_plugin_settings_router
 from app.routers import media
 from app.core.translation_db import ensure_default_locale
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(api_router, prefix="/api")
     app.include_router(build_admin_router(templates))
     app.include_router(build_auth_router(templates))
+    app.include_router(build_hosting_router(templates))
     app.include_router(build_plugin_settings_router(templates))
     app.include_router(media.router)
 

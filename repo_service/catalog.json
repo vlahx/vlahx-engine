@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated_at": "2026-08-20T09:00:00Z",
+  "updated_at": "2026-08-26T08:50:00Z",
   "plugins": [
     {
       "id": "analytics",
@@ -89,6 +89,17 @@
       "icon": "🔗",
       "badge": "Oficial • Verificat",
       "download_url": "http://192.168.1.11:8088/download/plugins/share.zip"
+    },
+    {
+      "id": "vlahx_article_series",
+      "name": "VlahX Article Series",
+      "version": "1.0.0",
+      "min_engine_version": "2.0.0",
+      "author": "VlahX Engine Team",
+      "description": "Organizează articolele în serii/seriale pe capitole, cu imagine de copertă unică partajată și navigare episodică (Anterior / Următor).",
+      "icon": "📚",
+      "badge": "Oficial • Verificat",
+      "download_url": "http://192.168.1.11:8088/download/plugins/vlahx_article_series.zip"
     }
   ],
   "themes": [

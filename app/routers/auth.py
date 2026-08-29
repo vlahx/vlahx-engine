@@ -46,23 +46,208 @@ def get_repo_domain_url() -> str:
 router = APIRouter(tags=["auth"])
 
 
-def build_auth_router(templates: Jinja2Templates) -> APIRouter:
-    @router.get("/admin/login", response_class=HTMLResponse)
-    def login_page(request: Request):
-        bot_username = get_telegram_bot_username()
+def get_google_credentials() -> tuple[str, str]:
+    from app.core.site_settings import read_settings
+    db_s = read_settings()
+    cid = str(db_s.get("GOOGLE_CLIENT_ID") or os.environ.get("GOOGLE_CLIENT_ID", "")).strip()
+    csec = str(db_s.get("GOOGLE_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET", "")).strip()
+    return cid, csec
 
-        google_client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+def get_github_credentials() -> tuple[str, str]:
+    from app.core.site_settings import read_settings
+    db_s = read_settings()
+    cid = str(db_s.get("GITHUB_CLIENT_ID") or os.environ.get("GITHUB_CLIENT_ID", "")).strip()
+    csec = str(db_s.get("GITHUB_CLIENT_SECRET") or os.environ.get("GITHUB_CLIENT_SECRET", "")).strip()
+    return cid, csec
+
+def build_auth_router(templates: Jinja2Templates) -> APIRouter:
+    @router.get("/login", response_class=HTMLResponse)
+    @router.get("/admin/login", response_class=HTMLResponse)
+    def login_page(request: Request, msg: str | None = None, err: str | None = None):
+        bot_username = get_telegram_bot_username()
+        google_client_id, _ = get_google_credentials()
+        github_client_id, _ = get_github_credentials()
 
         return render_template(
             templates,
             request=request,
             name="admin/login.html",
             context={
+                "title": "Conectare — VlahX Core",
                 "bot_username": bot_username or "",
                 "auth_url": TELEGRAM_AUTH_URL,
                 "google_client_id": google_client_id,
+                "github_client_id": github_client_id,
+                "msg": msg or request.query_params.get("msg"),
+                "err": err or request.query_params.get("err"),
             },
         )
+
+    @router.post("/login")
+    async def classic_login(
+        request: Request,
+        email: str = Form(...),
+        password: str = Form(...),
+        db: Session = Depends(get_db)
+    ):
+        from app.utils.auth import verify_password
+        email_clean = email.strip().lower()
+        user = db.execute(
+            select(User).where(User.email == email_clean, User.password_hash.isnot(None))
+        ).scalars().first()
+
+        if not user or not user.password_hash or not verify_password(password.strip(), user.password_hash):
+            return RedirectResponse(url="/login?err=Email+sau+parolă+incorectă.", status_code=303)
+
+        if not user.email_verified:
+            return RedirectResponse(url="/login?err=Adresa+de+email+nu+a+fost+verificată+încă.+Verifică+Inbox-ul+sau+Folderul+Spam+pentru+linkul+de+activare.", status_code=303)
+
+        request.session["user_id"] = str(user.id)
+        return RedirectResponse(url="/profile", status_code=303)
+
+    @router.get("/register", response_class=HTMLResponse)
+    def register_page(request: Request, msg: str | None = None, err: str | None = None):
+        return render_template(
+            templates,
+            request=request,
+            name="user/register.html",
+            context={
+                "title": "Înregistrare Cont — VlahX Core",
+                "msg": msg or request.query_params.get("msg"),
+                "err": err or request.query_params.get("err"),
+            },
+        )
+
+    @router.post("/register")
+    async def classic_register(
+        request: Request,
+        email: str = Form(...),
+        password: str = Form(...),
+        first_name: str = Form(...),
+        last_name: str = Form(""),
+        db: Session = Depends(get_db)
+    ):
+        from app.utils.auth import hash_password
+        from app.utils.email_verification import send_verification_email
+        from uuid import uuid4
+
+        email_clean = email.strip().lower()
+        if not email_clean or "@" not in email_clean:
+            return RedirectResponse(url="/register?err=Adresă+de+email+nevalidă.", status_code=303)
+
+        existing = db.execute(select(User).where(User.email == email_clean)).scalars().first()
+        token = uuid4().hex
+        now = datetime.now(timezone.utc)
+
+        if existing:
+            if existing.password_hash:
+                return RedirectResponse(url="/register?err=Există+deja+un+cont+cu+această+adresă+de+email.", status_code=303)
+            else:
+                # Link classic password & email verification to existing OAuth user
+                existing.first_name = first_name.strip() or existing.first_name
+                existing.last_name = last_name.strip() or existing.last_name
+                existing.password_hash = hash_password(password.strip())
+                existing.email_verified = False
+                existing.verification_token = token
+                new_user = existing
+        else:
+            new_user = User(
+                provider="email",
+                oauth_id=f"email_{email_clean}",
+                email=email_clean,
+                first_name=first_name.strip(),
+                last_name=last_name.strip(),
+                password_hash=hash_password(password.strip()),
+                email_verified=False,
+                verification_token=token,
+                role="reader",
+                created_at=now
+            )
+            db.add(new_user)
+
+        db.commit()
+        db.refresh(new_user)
+
+        # Auto-subscribe new registered user email to newsletter
+        if email_clean:
+            try:
+                from app.plugins.newsletter.db import add_or_reactivate_subscriber
+                loc_user = getattr(request.state, "locale", "ro") or "ro"
+                add_or_reactivate_subscriber(email_clean, locale=loc_user)
+            except Exception as e_news:
+                logger.warning(f"Could not auto-subscribe user to newsletter: {e_news}")
+
+        # Send Telegram Notification Alert to Admin on New User Registration
+        reg_msg = (
+            f"👤 *UTILIZATOR NOU ÎNREGISTRAT PE SITE!*\n\n"
+            f"📛 *Nume:* {first_name.strip()} {last_name.strip()}\n"
+            f"📧 *Email:* {email_clean}\n"
+            f"📅 *Data:* {now.strftime('%d.%m.%Y %H:%M UTC')}\n\n"
+            f"⚡ *Vezi în Admin:* {public_site_origin(request)}/admin/users"
+        )
+        try:
+            from app.utils.telegram_notify import send_telegram_message
+            send_telegram_message(reg_msg)
+        except Exception as e:
+            logger.warning(f"classic_register: Telegram notify error: {e}")
+
+        # Send verification email via no-reply@vlahx.org
+        sent_ok = send_verification_email(email_clean, token, first_name.strip())
+        
+        # Mandatory Email Verification Redirect - DO NOT Auto-Login
+        return RedirectResponse(
+            url=f"/login?msg=Contul+a+fost+creat!+Un+link+de+verificare+a+fost+trimis+pe+adresa+{email_clean}.+Verifică+Inbox-ul+pentru+activare.",
+            status_code=303
+        )
+
+    @router.get("/verify-email")
+    async def verify_email_route(request: Request, token: str, db: Session = Depends(get_db)):
+        user = db.execute(select(User).where(User.verification_token == token)).scalar_one_or_none()
+        if not user:
+            return RedirectResponse(url="/login?err=Token+de+verificare+nevalid+sau+expirat.", status_code=303)
+
+        user.email_verified = True
+        user.verification_token = None
+        db.commit()
+
+        request.session["user_id"] = str(user.id)
+        return RedirectResponse(url="/profile?msg=Emailul+tău+a+fost+verificat+cu+succes!+Bun+venit!", status_code=303)
+
+    @router.post("/profile/intent")
+    async def save_profile_intent(request: Request, intent: str = Form(...), db: Session = Depends(get_db)):
+        user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
+        if not user:
+            return RedirectResponse(url="/login", status_code=303)
+
+        db_user = db.execute(select(User).where(User.id == user.id)).scalar_one_or_none() or user
+        clean_intent = intent.strip()
+        db_user.onboarding_intent = clean_intent
+
+        if clean_intent == "developer" and "developer" not in db_user.roles_list and db_user.role != "admin":
+            if db_user.dev_status != "approved":
+                db_user.dev_status = "pending"
+                db_user.dev_requested_at = datetime.now(timezone.utc)
+                db.commit()
+
+                # Trigger Telegram notification to Admin
+                user_name = f"{db_user.first_name or db_user.username or 'Utilizator'} {db_user.last_name or ''}".strip()
+                msg = (
+                    f"🔔 *SOLICITARE ROL DEZVOLTATOR (ONBOARDING)!*\n\n"
+                    f"👤 *Utilizator:* {user_name} (`ID: #{db_user.id}`)\n"
+                    f"📧 *Email:* {db_user.email or 'Nespecificat'}\n"
+                    f"🎯 *Intenție:* Dezvoltator Teme / Plugin (DevStudio)\n\n"
+                    f"⚡ *Aprobă în Admin:* {public_site_origin(request)}/admin/users"
+                )
+                try:
+                    from app.utils.telegram_notify import send_telegram_message
+                    send_telegram_message(msg)
+                except Exception as e:
+                    logger.warning(f"save_profile_intent: Telegram notify error: {e}")
+
+                return RedirectResponse(url="/profile?msg=Solicitarea+pentru+rolul+de+Dezvoltator+a+fost+trimisă!+Se+așteaptă+aprobarea+administratorului.", status_code=303)
+
+        db.commit()
+        return RedirectResponse(url=f"/profile?msg=Opțiunea+ta+({clean_intent})+a+fost+salvată!", status_code=303)
 
     @router.get("/dev/login")
     async def dev_login(
@@ -213,13 +398,14 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         return RedirectResponse(url="/admin", status_code=303)
 
     @router.get("/auth/google/login")
+    @router.get("/oauth/login/google")
     async def google_login(request: Request):
-        client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+        client_id, _ = get_google_credentials()
         if not client_id:
-            return HTMLResponse("GOOGLE_CLIENT_ID nu este configurat în mediu (.env).", status_code=500)
+            return HTMLResponse("GOOGLE_CLIENT_ID nu este configurat în Baza de Date sau Mediu.", status_code=500)
         
         base = public_site_origin(request).rstrip("/")
-        redirect_uri = f"{base}/auth/google/callback"
+        redirect_uri = f"{base}/oauth/callback/google"
 
         next_url = request.query_params.get("next", "/profile")
         request.session["auth_next"] = next_url
@@ -237,6 +423,7 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         return RedirectResponse(url=google_auth_url, status_code=303)
 
     @router.get("/auth/google/callback")
+    @router.get("/oauth/callback/google")
     async def google_callback(
         request: Request,
         db: Session = Depends(get_db),
@@ -245,10 +432,9 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         if not code:
             return HTMLResponse("Codul de autorizare Google lipsește.", status_code=400)
 
-        client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
-        client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+        client_id, client_secret = get_google_credentials()
         base = public_site_origin(request).rstrip("/")
-        redirect_uri = f"{base}/auth/google/callback"
+        redirect_uri = f"{base}/oauth/callback/google"
 
         # Exchange code for tokens
         token_url = "https://oauth2.googleapis.com/token"
@@ -322,14 +508,170 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
 
             request.session["user_id"] = str(existing.id)
 
-            next_url = request.session.get("auth_next", "/profile")
-            if "auth_next" in request.session:
+            next_url = request.session.get("auth_next")
+            if next_url:
                 del request.session["auth_next"]
+            else:
+                next_url = "/profile?msg=Te-ai+conectat+cu+succes+prin+Google%21"
 
             return RedirectResponse(url=next_url, status_code=303)
 
         except Exception as e:
             return HTMLResponse(f"Eroare autentificare Google: {e}", status_code=500)
+
+    @router.get("/auth/github/login")
+    @router.get("/oauth/login/github")
+    async def github_login(request: Request):
+        client_id, _ = get_github_credentials()
+        if not client_id:
+            return HTMLResponse("GITHUB_CLIENT_ID nu este configurat în Baza de Date sau Mediu.", status_code=500)
+
+        base = public_site_origin(request).rstrip("/")
+        redirect_uri = f"{base}/oauth/callback/github"
+
+        next_url = request.query_params.get("next", "/profile")
+        request.session["auth_next"] = next_url
+
+        github_auth_url = (
+            "https://github.com/login/oauth/authorize?"
+            + urllib.parse.urlencode({
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "scope": "read:user user:email",
+            })
+        )
+        return RedirectResponse(url=github_auth_url, status_code=303)
+
+    @router.get("/auth/github/callback")
+    @router.get("/oauth/callback/github")
+    async def github_callback(
+        request: Request,
+        db: Session = Depends(get_db),
+    ):
+        code = request.query_params.get("code")
+        if not code:
+            return HTMLResponse("Codul de autorizare GitHub lipsește.", status_code=400)
+
+        client_id, client_secret = get_github_credentials()
+        base = public_site_origin(request).rstrip("/")
+        redirect_uri = f"{base}/oauth/callback/github"
+
+        token_url = "https://github.com/login/oauth/access_token"
+        token_data = urllib.parse.urlencode({
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "code": code,
+            "redirect_uri": redirect_uri,
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(
+                token_url,
+                data=token_data,
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Accept": "application/json",
+                },
+            )
+            with urllib.request.urlopen(req) as resp:
+                tokens = json.loads(resp.read().decode("utf-8"))
+
+            access_token = tokens.get("access_token")
+            if not access_token:
+                err_msg = tokens.get("error_description") or tokens.get("error") or "Eroare la obținerea token-ului GitHub."
+                return HTMLResponse(f"Eroare GitHub Token: {err_msg}", status_code=400)
+
+            user_url = "https://api.github.com/user"
+            u_req = urllib.request.Request(
+                user_url,
+                headers={
+                    "Authorization": f"token {access_token}",
+                    "User-Agent": "VlahX-Core-App",
+                    "Accept": "application/json",
+                },
+            )
+            with urllib.request.urlopen(u_req) as u_resp:
+                user_info = json.loads(u_resp.read().decode("utf-8"))
+
+            github_sub = str(user_info.get("id"))
+            name = user_info.get("name") or user_info.get("login")
+            email = user_info.get("email")
+            picture = user_info.get("avatar_url")
+
+            if not email:
+                try:
+                    emails_url = "https://api.github.com/user/emails"
+                    e_req = urllib.request.Request(
+                        emails_url,
+                        headers={
+                            "Authorization": f"token {access_token}",
+                            "User-Agent": "VlahX-Core-App",
+                            "Accept": "application/json",
+                        },
+                    )
+                    with urllib.request.urlopen(e_req) as e_resp:
+                        emails_data = json.loads(e_resp.read().decode("utf-8"))
+                        for e_item in emails_data:
+                            if isinstance(e_item, dict) and e_item.get("primary"):
+                                email = e_item.get("email")
+                                break
+                        if not email and emails_data and isinstance(emails_data[0], dict):
+                            email = emails_data[0].get("email")
+                except Exception:
+                    pass
+
+            provider = "github"
+            stmt = select(User).where(User.provider == provider, User.oauth_id == github_sub)
+            existing = db.execute(stmt).scalar_one_or_none()
+            now = datetime.now(timezone.utc)
+
+            if existing is None:
+                count_stmt = select(func.count()).select_from(User)
+                user_count = db.execute(count_stmt).scalar() or 0
+                initial_role = "admin" if user_count == 0 else "reader"
+
+                existing = User(
+                    provider=provider,
+                    oauth_id=github_sub,
+                    email=email or f"{github_sub}@github.user",
+                    first_name=name,
+                    last_name=None,
+                    image_url=picture,
+                    role=initial_role,
+                    email_verified=True,
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(existing)
+                db.commit()
+                db.refresh(existing)
+                events.publish(
+                    "user.registered",
+                    provider=provider,
+                    first_name=existing.first_name,
+                    last_name=existing.last_name,
+                    email=existing.email,
+                )
+            else:
+                existing.email = email or existing.email
+                existing.first_name = name or existing.first_name
+                existing.image_url = picture or existing.image_url
+
+            db.commit()
+            db.refresh(existing)
+
+            request.session["user_id"] = str(existing.id)
+
+            next_url = request.session.get("auth_next")
+            if next_url:
+                del request.session["auth_next"]
+            else:
+                next_url = "/profile?msg=Te-ai+conectat+cu+succes+prin+GitHub%21"
+
+            return RedirectResponse(url=next_url, status_code=303)
+
+        except Exception as e:
+            return HTMLResponse(f"Eroare autentificare GitHub: {e}", status_code=500)
 
     @router.get("/profile", response_class=HTMLResponse)
     async def user_profile_page(
@@ -341,6 +683,20 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
             return RedirectResponse(url="/admin/login?next=/profile", status_code=303)
 
         db_user = db.execute(select(User).where(User.id == user.id)).scalar_one_or_none() or user
+        from app.core.user_purge import get_user_deletion_status
+        is_pending, req_at, deadline = get_user_deletion_status(db_user)
+        if is_pending and req_at and deadline:
+            return render_template(
+                templates,
+                request=request,
+                name="user/account_recovery.html",
+                context={
+                    "title": "Recuperare Cont — VlahX",
+                    "user": db_user,
+                    "requested_at_str": req_at.strftime("%d.%m.%Y la %H:%M"),
+                    "deadline_str": deadline.strftime("%d.%m.%Y la %H:%M"),
+                },
+            )
 
         # Retrieve user's orders from minishop if minishop plugin exists
         orders = []
@@ -360,6 +716,37 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
                 "orders": orders,
             },
         )
+
+    @router.post("/profile/delete-account")
+    async def user_profile_delete_account(
+        request: Request,
+        db: Session = Depends(get_db),
+    ):
+        user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
+        if not user:
+            return RedirectResponse(url="/admin/login", status_code=303)
+
+        from app.core.user_purge import request_user_deletion
+        request_user_deletion(db, user.id)
+
+        if "session" in request.scope:
+            request.session.clear()
+
+        return RedirectResponse(url="/?msg=Ștergerea+contului+a+fost+programată.+Ai+la+dispoziție+30+de+zile+pentru+a-ți+recupera+contul.", status_code=303)
+
+    @router.post("/profile/cancel-deletion")
+    async def user_profile_cancel_deletion(
+        request: Request,
+        db: Session = Depends(get_db),
+    ):
+        user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
+        if not user:
+            return RedirectResponse(url="/admin/login", status_code=303)
+
+        from app.core.user_purge import cancel_user_deletion
+        cancel_user_deletion(db, user.id)
+
+        return RedirectResponse(url="/profile?msg=Ștergerea+a+fost+anulată.+Contul+tău+a+fost+recuperat+cu+succes!", status_code=303)
 
     @router.post("/profile/update")
     async def user_profile_update(
@@ -418,7 +805,7 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
     ):
         stmt = select(User).where(User.id == user_id)
         pub_user = db.execute(stmt).scalar_one_or_none()
-        if not pub_user:
+        if not pub_user or pub_user.deletion_requested_at is not None:
             raise HTTPException(status_code=404, detail="Utilizatorul nu a fost găsit.")
 
         return render_template(

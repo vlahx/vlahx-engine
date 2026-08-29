@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <div class="card card-modern shadow-sm border-0 p-4 p-md-5">
+        <div class="d-flex align-items-center gap-3 mb-4 border-bottom pb-3">
+          <span class="fs-1">📜</span>
+          <div>
+            <h1 class="h2 fw-bold mb-1">{{ t("legal.terms.title") if t else "Termeni și Condiții" }}</h1>
+            <p class="text-secondary mb-0">Platforma VlahX — Condiții Generale de Utilizare</p>
+          </div>
+        </div>
+
+        <div class="article-content lh-lg text-body">
+          <p class="lead fw-semibold text-secondary mb-4">
+            Bine ai venit pe platforma <strong>VlahX</strong>. Prin accesarea, înregistrarea sau utilizarea serviciilor noastre, ești de acord să respecți următorii Termeni și Condiții.
+          </p>
+
+          <h3 class="h5 fw-bold mt-4 mb-3 text-dark">1. Accesul și Înregistrarea Contului</h3>
+          <ul>
+            <li>Pentru a accesa anumite funcționalități ale platformei (cum ar fi postarea de conținut, comentarii sau accesul în modulul de dezvoltare), este necesară crearea unui cont.</li>
+            <li>Ești responsabil pentru păstrarea confidențialității datelor de conectare și pentru toate activitățile desfășurate în cadrul contului tău.</li>
+          </ul>
+
+          <h3 class="h5 fw-bold mt-4 mb-3 text-dark">2. Roluri în Sistem și Drepturi de Acces</h3>
+          <p>Platforma VlahX folosește un sistem avansat de securitate bazat pe roluri (RBAC):</p>
+          <ul>
+            <li><strong>Reader (`reader`)</strong>: Rolul implicit primit la înregistrare; permite citirea articolelor și postarea de comentarii.</li>
+            <li><strong>Author (`author`)</strong>: Permite redactarea și publicarea articolelor proprii.</li>
+            <li><strong>Editor (`editor`)</strong>: Permite gestionarea categoriilor și editarea articolelor de pe platformă.</li>
+            <li><strong>Developer (`developer`)</strong>: Permite accesul la integrări tehnice și funcționalități destinate dezvoltatorilor.</li>
+            <li><strong>Admin (`admin`)</strong>: Administrarea completă a sistemului, setărilor globale și utilizatorilor.</li>
+          </ul>
+
+          <h3 class="h5 fw-bold mt-4 mb-3 text-dark">3. Reguli de Conținut & Comportament</h3>
+          <p>Utilizatorii se obligă să nu publice pe VlahX conținut care:</p>
+          <ul>
+            <li>Încalcă legile în vigoare, drepturile de autor sau proprietatea intelectuală a altor persoane.</li>
+            <li>Conține limbaj licențios, instigant la ură, hărțuire sau spam.</li>
+            <li>Încearcă să vulnerabilizeze securitatea platformei sau să acceseze resurse neautorizate.</li>
+          </ul>
+
+          <h3 class="h5 fw-bold mt-4 mb-3 text-dark">4. Încetarea Serviciilor & Perioada de Grație la Ștergerea Contului</h3>
+          <p>
+            Îți poți închide contul în orice moment din secțiunea <a href="/profile" class="fw-bold text-decoration-none">Profilul Meu</a>. 
+            La închiderea contului se aplică o <strong>perioadă de grație de 30 de zile</strong> în care îți poți anula decizia și recupera contul. După cele 30 de zile, toate datele personale și fișierele atașate vor fi șterse definitiv și ireversibil.
+          </p>
+
+          <h3 class="h5 fw-bold mt-4 mb-3 text-dark">5. Modificarea Termenilor</h3>
+          <p>
+            VlahX își rezervă dreptul de a actualiza prezentul document. Continuarea utilizării platformei după modificări constituie acceptul tău asupra noilor condiții.
+          </p>
+
+          <div class="mt-4 pt-3 border-top text-secondary small">
+            Ultima actualizare: {{ now.strftime('%d.%m.%Y') if now else '28.08.2026' }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

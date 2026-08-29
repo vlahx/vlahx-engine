@@ -71,13 +71,10 @@
       <div class="col-12 col-md-6 col-lg-3">
         <h6 class="fw-bold mb-3 text-body">{{ t('footer.navigation') if t else 'Navigare' }}</h6>
         <ul class="list-unstyled mb-0 small d-flex flex-column gap-2">
-          <li>
-            <a href="/" class="text-secondary text-decoration-none hover-primary">🏠 {{ t('nav.home') if t else 'Acasă' }}</a>
-          </li>
-          {% if fixed_nav_posts %}
-            {% for np in fixed_nav_posts %}
+          {% if footer_nav_posts %}
+            {% for np in footer_nav_posts %}
               <li>
-                <a href="{{ np.href or np.url }}" class="text-secondary text-decoration-none hover-primary">{{ np.fixed_label or np.label }}</a>
+                <a href="{{ url_lang(np.href or np.url or post_public_path(np.slug)) }}" target="{{ np.target or '_self' }}" class="text-secondary text-decoration-none hover-primary">{{ np.fixed_label or np.label }}</a>
               </li>
             {% endfor %}
           {% endif %}
@@ -119,12 +116,12 @@
 
       <!-- Col 4: Community -->
       <div class="col-12 col-md-6 col-lg-3">
-        <h6 class="fw-bold mb-3 text-body">{{ t('footer.communityTitle') if t else 'Comunitate' }}</h6>
+        <h6 class="fw-bold mb-3 text-body">{{ t('footer.communityTitle') if t else 'Comunitatea VlahX' }}</h6>
         <p class="text-secondary small mb-2">
-          {{ t('footer.communityText') if t else 'Jurnal de drum, articole tehnice și povești din comunitatea pasionaților.' }}
+          {{ t('footer.communityText') if t else 'Alătură-te comunității VlahX — locul unde împărtășim idei, proiecte și inovații tehnologice.' }}
         </p>
         <p class="text-secondary small mb-0 opacity-75">
-          <strong>{{ site_display_name() }}</strong>{% if site_tagline() %} — {{ site_tagline() }}{% endif %}
+          <strong>{{ site_display_name() }}</strong>
         </p>
 
         {% if plugin_area_footer_col4 %}

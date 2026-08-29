@@ -1,0 +1,303 @@
+{% extends "admin/admin_base.html" %}
+
+{% block content %}
+<section class="admin-editor-page py-3 py-md-4 px-2 px-sm-3">
+  <div class="mb-3 mb-md-4">
+    <h1 class="fs-5 fs-md-3 fw-bold mb-0">{{ t("admin.editor.editTitle") if post else t("admin.editor.newTitle") }}</h1>
+    <p class="text-secondary mb-0 d-none d-md-block">{{ t("admin.editor.subtitle") }}</p>
+  </div>
+
+  <form class="card shadow-sm overflow-hidden" method="post" action="/admin/save" enctype="multipart/form-data" onsubmit="return beforeSubmit();">
+    <input type="hidden" name="editing_original_slug" value="{{ post.slug if post else '' }}" />
+
+    <div class="card-body p-3 p-lg-4">
+
+    <!-- Setări Globale Postare -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">{{ t("admin.editor.slugLabel") }}</label>
+        <input class="form-control" type="text" name="slug" value="{{ post.slug if post else '' }}" placeholder="ex: aventura-maroc" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">{{ t("admin.editor.categoryLabel") }}</label>
+        <input class="form-control" type="text" name="category" list="categories-list" value="{{ post.category if post else '' }}" placeholder="Ex: General, Tehnic" />
+        <datalist id="categories-list">
+          {% for category in categories %}
+            <option value="{{ category.name }}"></option>
+          {% endfor %}
+        </datalist>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">{{ t("admin.editor.status") }}</label>
+        <div class="form-check form-switch mt-2">
+          <input class="form-check-input" type="checkbox" name="draft" value="true" id="draft_check" {% if post and post.draft %}checked{% endif %}>
+          <label class="form-check-label" for="draft_check">{{ t("admin.editor.isDraft") }}</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGINĂ FIXĂ / STATICĂ ÎN MENIU (NAVBAR) -->
+    <div class="card mb-4 border-info border-opacity-25 bg-info bg-opacity-10">
+      <div class="card-body p-3">
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" name="nav_fixed" value="true" id="nav_fixed_check" {% if editor_nav_fixed %}checked{% endif %}>
+          <label class="form-check-label fw-bold text-dark" for="nav_fixed_check">📌 {{ t("admin.editor.staticPageHeader") }}</label>
+        </div>
+        <p class="text-secondary small mb-2">{{ t("admin.editor.staticPageHelp") }}</p>
+        <div class="row">
+          <div class="col-md-12">
+            <div class="alert alert-light border-0 mb-0 py-2 px-0 text-secondary small">
+              Titlul linkului din navbar este luat automat din titlul postării în limba activă. Câmpul vechi de label este păstrat doar pentru compatibilitate.
+            </div>
+            <input type="hidden" name="nav_fixed_label" value="" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Imagine Hero -->
+    <div class="mb-4 p-3 border rounded bg-body-tertiary bg-opacity-25">
+      <label class="form-label fw-semibold d-block mb-2">{{ t("admin.editor.heroImageLabel") }}</label>
+      {% set hero_url = post.hero_image_url|string|trim if post and post.hero_image_url else '' %}
+      {% set hero_url = hero_url if hero_url and hero_url|lower not in ['none', 'null', 'undefined'] else '' %}
+      <input type="hidden" name="hero_image_url" id="hero_image_url" value="{{ hero_url }}" />
+
+      <div id="hero_image_preview" class="mb-2">
+        {% if hero_url %}
+          <img src="{{ hero_url }}" alt="Hero image" style="max-width: 260px; max-height: 140px; object-fit: cover; border-radius: 8px;" class="shadow-sm border" />
+        {% endif %}
+      </div>
+
+      <div class="d-flex gap-2 align-items-center">
+        <button type="button" class="btn btn-sm btn-success fw-semibold" onclick="openMediaManager({ category: 'blog', onSelect: selectHeroImageFromMedia })">
+          🖼️ {{ t("admin.editor.selectFromMedia") }}
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-danger" id="hero_remove_btn">
+          🗑️ {{ t("admin.editor.removeHeroImage") }}
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB-URI MULTILINGV -->
+    <div class="card border-primary border-opacity-25 mb-4 shadow-sm">
+      <div class="card-header bg-body-tertiary border-bottom p-2 px-3">
+        <ul class="nav nav-pills card-header-pills" id="langTabs" role="tablist">
+          {% for loc in locales %}
+          <li class="nav-item" role="presentation">
+            <button class="nav-link {% if loop.first %}active{% endif %} fw-bold me-1" id="tab-{{ loc.code }}" data-bs-toggle="tab" data-bs-target="#content-{{ loc.code }}" type="button" role="tab" aria-controls="content-{{ loc.code }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}" onclick="switchLangTab('{{ loc.code }}')">
+              🌐 {{ loc.name or loc.code|upper }} {% if loc.is_default %}<span class="badge bg-primary ms-1">default</span>{% endif %}
+            </button>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="card-body p-3 p-lg-4">
+        <div class="tab-content" id="langTabsContent">
+          {% for loc in locales %}
+          {% set code = loc.code %}
+          {% set trans = post_translations.get(code, {}) if post_translations else {} %}
+          {% set val_title = trans.get('title') or (post.title if loop.first and post else '') %}
+          {% set val_excerpt = trans.get('excerpt') or (post.excerpt if loop.first and post else '') %}
+          {% set val_content = trans.get('content_html') or (post.content_html if loop.first and post else '') %}
+
+          <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="content-{{ code }}" role="tabpanel">
+            <div class="mb-3">
+              <label class="form-label fw-bold">{{ t("admin.editor.postTitleLabel") }} ({{ code|upper }})</label>
+              <input class="form-control form-control-lg" type="text" name="title_{{ code }}" value="{{ val_title }}" placeholder="{{ t("admin.editor.postTitleLabel") }} ({{ code|upper }})..." {% if loop.first %}required{% endif %} />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold">{{ t("admin.editor.excerptLabel") }} ({{ code|upper }})</label>
+              <textarea class="form-control" name="excerpt_{{ code }}" rows="2" placeholder="{{ t("admin.editor.excerptLabel") }} ({{ code|upper }})...">{{ val_excerpt }}</textarea>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold">🏷️ Cuvinte Cheie / Meta Keywords ({{ code|upper }})</label>
+              {% set val_keywords = trans.get('meta_keywords') or (post.meta_keywords if loop.first and post else '') %}
+              <input class="form-control" type="text" name="meta_keywords_{{ code }}" value="{{ val_keywords }}" placeholder="ex: python, algoritmi, tutorial, programare..." />
+              <div class="form-text small">Cuvinte cheie separate prin virgulă pentru optimizare SEO și metadate Google.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold">{{ t("admin.editor.contentLabel") }} ({{ code|upper }})</label>
+              <textarea id="my_editor_{{ code }}" name="content_html_{{ code }}">{{ val_content }}</textarea>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    </div>
+
+    <div class="card-footer d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 bg-body border-top px-3 px-lg-4 py-3">
+      <div class="d-grid gap-2 d-md-flex btn-toolbar flex-md-wrap">
+        <button class="btn btn-success btn-lg py-2 px-4 fw-bold" type="submit">💾 {{ t("admin.editor.saveBtn") }}</button>
+        <a class="btn btn-secondary btn-lg py-2 px-3" href="/admin">{{ t("admin.editor.cancelBtn") }}</a>
+      </div>
+      {% if post %}
+        <a class="btn btn-outline-primary btn-lg py-2 px-3" href="{{ post_public_path(post.slug) }}" target="_blank" rel="noopener">👁️ {{ t("admin.actions.viewLive") }}</a>
+      {% endif %}
+    </div>
+  </form>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js" referrerpolicy="origin"></script>
+
+<script>
+
+function selectHeroImageFromMedia(file) {
+  if (!file || !file.file_url) return;
+  const urlInput = document.getElementById('hero_image_url');
+  if (urlInput) urlInput.value = file.file_url;
+
+  const previewDiv = document.getElementById('hero_image_preview');
+  if (previewDiv) {
+    previewDiv.innerHTML = '<img src="' + file.file_url + '" alt="Hero image" style="max-width: 200px; height: auto; border-radius: 6px;" />';
+  }
+}
+
+  function tinymceHeight() {
+    var narrow = window.matchMedia('(max-width: 991.98px)').matches;
+    var vh = window.innerHeight || 640;
+    return narrow ? Math.max(300, Math.min(Math.round(vh * 0.44), 520)) : Math.max(420, Math.min(Math.round(vh * 0.58), 720));
+  }
+
+  {% for loc in locales %}
+  tinymce.init({
+    selector: '#my_editor_{{ loc.code }}',
+    base_url: 'https://cdn.jsdelivr.net/npm/tinymce@6',
+    suffix: '.min',
+    height: tinymceHeight(),
+    min_height: 280,
+    promotion: false,
+    branding: false,
+    skin: 'oxide-dark',
+    content_css: 'dark',
+    relative_urls: false,
+    remove_script_host: true,
+    document_base_url: {{ editor_document_base|tojson }},
+    convert_urls: true,
+    menubar: true,
+    toolbar_mode: 'wrap',
+    resize: true,
+    browser_spellcheck: true,
+    paste_data_images: true,
+    elementpath: true,
+    media_live_embeds: true,
+    plugins: [
+      'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+      'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+      'insertdatetime', 'media', 'table', 'help', 'wordcount', 'visualchars',
+      'autoresize', 'emoticons', 'pagebreak', 'nonbreaking', 'directionality', 'codesample', 'quickbars'
+    ],
+    toolbar:
+      'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | ' +
+      'forecolor backcolor | alignleft aligncenter alignright alignjustify | ' +
+      'bullist numlist | table | link image media medialibrary | codesample code | fullscreen preview | help',
+    codesample_languages: [
+      { text: 'HTML/XML', value: 'markup' },
+      { text: 'JavaScript', value: 'javascript' },
+      { text: 'CSS', value: 'css' },
+      { text: 'PHP', value: 'php' },
+      { text: 'Python', value: 'python' },
+      { text: 'Java', value: 'java' },
+      { text: 'C', value: 'c' },
+      { text: 'C++', value: 'cpp' },
+      { text: 'C#', value: 'csharp' },
+      { text: 'SQL', value: 'sql' },
+      { text: 'Bash/Shell', value: 'bash' },
+      { text: 'JSON', value: 'json' },
+      { text: 'YAML', value: 'yaml' },
+      { text: 'Docker', value: 'docker' }
+    ],
+    quickbars_selection_toolbar: 'bold italic underline | blocks | quicklink blockquote',
+    quickbars_insert_toolbar: 'quickimage quicktable',
+    images_upload_url: '/admin/upload-image',
+    automatic_uploads: true,
+    images_file_types: 'jpeg,jpg,jpe,png,gif',
+    setup: function (editor) {
+      editor.ui.registry.addButton('medialibrary', {
+        text: '🖼️ Media Library',
+        icon: 'image',
+        onAction: function () {
+          openMediaManager({
+            category: 'blog',
+            onSelect: function (file) {
+              editor.insertContent('<img src="' + file.file_url + '" alt="' + (file.alt_text || '') + '" style="max-width: 100%; height: auto; border-radius: 8px;" />');
+            }
+          });
+        }
+      });
+      editor.on('change blur keyup', function () {
+        editor.save();
+      });
+    }
+  });
+  {% endfor %}
+
+  function beforeSubmit() {
+    {% for loc in locales %}
+    if (typeof tinymce !== 'undefined' && tinymce.get('my_editor_{{ loc.code }}')) {
+      tinymce.get('my_editor_{{ loc.code }}').save();
+    }
+    {% endfor %}
+    return true;
+  }
+
+
+
+  function switchLangTab(code) {
+    const tabBtns = document.querySelectorAll('#langTabs .nav-link');
+    const tabPanes = document.querySelectorAll('#langTabsContent .tab-pane');
+
+    tabBtns.forEach(btn => {
+      const isTarget = btn.getAttribute('data-bs-target') === '#content-' + code;
+      btn.classList.toggle('active', isTarget);
+      btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+    });
+
+    tabPanes.forEach(pane => {
+      const isTarget = (pane.id === 'content-' + code);
+      if (isTarget) {
+        pane.classList.add('show', 'active');
+      } else {
+        pane.classList.remove('show', 'active');
+      }
+    });
+
+    if (typeof tinymce !== 'undefined') {
+      const ed = tinymce.get('my_editor_' + code);
+      if (ed) {
+        setTimeout(() => { ed.show(); }, 50);
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const tabBtns = document.querySelectorAll('#langTabs button[data-bs-toggle="tab"]');
+    tabBtns.forEach(function(btn) {
+      btn.addEventListener('shown.bs.tab', function(e) {
+        const targetSelector = e.target.getAttribute('data-bs-target');
+        if (targetSelector) {
+          const targetPane = document.querySelector(targetSelector);
+          if (targetPane) {
+            const textarea = targetPane.querySelector('textarea[id^="my_editor_"]');
+            if (textarea && typeof tinymce !== 'undefined') {
+              const ed = tinymce.get(textarea.id);
+              if (ed) {
+                ed.show();
+              }
+            }
+          }
+        }
+      });
+    });
+  });
+
+  document.getElementById('hero_remove_btn')?.addEventListener('click', function () {
+    document.getElementById('hero_image_url').value = '';
+    document.getElementById('hero_image_preview').innerHTML = '';
+  });
+</script>
+{% endblock %}

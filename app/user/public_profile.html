@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="bg-primary bg-gradient p-4 text-center text-white position-relative" style="min-height: 120px;">
+        </div>
+        <div class="card-body p-4 p-md-5 text-center mt-n5">
+          <div class="d-inline-block position-relative mb-3">
+            {% if public_user.image_url %}
+            <img src="{{ public_user.image_url }}" alt="{{ public_user.first_name or public_user.username }}" class="rounded-circle border border-4 border-white shadow" width="110" height="110">
+            {% else %}
+            <div class="rounded-circle bg-body-tertiary text-primary d-flex align-items-center justify-content-center fs-1 fw-bold border border-4 border-white shadow mx-auto" style="width: 110px; height: 110px;">
+              {{ (public_user.first_name or public_user.username or 'U')[0]|upper }}
+            </div>
+            {% endif %}
+          </div>
+
+          <h3 class="fw-bold mb-1">{{ public_user.first_name or public_user.username or 'Membru Club' }} {{ public_user.last_name or '' }}</h3>
+          
+          <div class="mb-3">
+            {% if public_user.role == 'admin' %}
+            <span class="badge bg-danger">⚡ Admin</span>
+            {% elif public_user.role in ['editor', 'author'] %}
+            <span class="badge bg-primary">📝 Redactor</span>
+            {% elif public_user.role == 'seller' %}
+            <span class="badge bg-success">🛍️ Vânzător</span>
+            {% else %}
+            <span class="badge bg-secondary">👤 Membru Comunitate</span>
+            {% endif %}
+          </div>
+
+          <p class="text-secondary small mb-3">
+            📅 Membru din {{ public_user.created_at.strftime('%B %Y') if public_user.created_at else 'recent' }}
+          </p>
+
+          {% if public_user.bio %}
+          <div class="p-3 bg-body-tertiary rounded-3 text-start mb-4 max-w-600 mx-auto">
+            <h6 class="fw-bold mb-2 text-secondary small text-uppercase">Despre Membru:</h6>
+            <p class="text-body mb-0 small" style="white-space: pre-line;">{{ public_user.bio }}</p>
+          </div>
+          {% endif %}
+
+          <a href="/" class="btn btn-outline-secondary btn-sm px-4 rounded-pill">
+            ← Înapoi la Prima Pagină
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -11,11 +11,34 @@ from sqlalchemy import select
 from app.models.db_models import User
 from app.utils.db import SessionLocal
 
+import hmac
+import hashlib
+import os
+
 logger = logging.getLogger(__name__)
 F = TypeVar("F", bound=Callable[..., Any])
 
 
+def hash_password(password: str) -> str:
+    salt = os.urandom(16).hex()
+    pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000).hex()
+    return f"{salt}${pwd_hash}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        if not stored_hash or "$" not in stored_hash:
+            return False
+        salt, pwd_hash = stored_hash.split("$", 1)
+        check_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000).hex()
+        return hmac.compare_digest(check_hash, pwd_hash)
+    except Exception:
+        return False
+
+
 def get_current_user_from_request(request: Request) -> User | None:
+    if "session" not in request.scope:
+        return None
     user_id = request.session.get("user_id")
     if not user_id:
         return None
@@ -47,6 +70,7 @@ def login_required(endpoint: F) -> F:
             if (
                 request.headers.get("accept") == "application/json"
                 or request.headers.get("x-requested-with") == "XMLHttpRequest"
+                or request.url.path.startswith("/api/")
                 or request.url.path.startswith("/admin/upload")
                 or request.url.path.startswith("/admin/settings/upload")
                 or request.url.path.startswith("/admin/settings/clear-image")

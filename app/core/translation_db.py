@@ -5,7 +5,7 @@ from typing import Any
 from app.models.db_models import TranslationEntry, TranslationLocale
 from app.utils.db import SessionLocal, init_db
 
-DEFAULT_LOCALE = "en"
+DEFAULT_LOCALE = "ro"
 SUPPORTED_DEFAULT_LOCALES = {"en"}
 
 DEFAULT_TRANSLATION_CATALOG: dict[str, str] = {
@@ -53,6 +53,8 @@ DEFAULT_TRANSLATION_CATALOG: dict[str, str] = {
     "home.postCard.readMore": "Read story →",
     "home.breadcrumb.home": "Home",
     "home.postPage.backToBlog": "Back to Journal",
+    "blog.prevPost": "Previous Article",
+    "blog.nextPost": "Next Article",
     "admin.dashboard.title": "Admin Dashboard",
     "admin.dashboard.subtitle": "Manage blog articles, categories, and site settings.",
     "admin.nav.dashboard": "Dashboard",
@@ -208,12 +210,11 @@ DEFAULT_TRANSLATION_CATALOG: dict[str, str] = {
     "footer.quickNav": "Quick Navigation",
     "footer.home": "🏠 Home",
     "footer.categories": "📁 Categories",
-    "footer.newsletter": "📧 Newsletter",
     "footer.admin": "⚡ Admin Panel",
     "footer.aboutBlog": "About Blog",
     "footer.theme": "Theme",
-    "footer.communityTitle": "Community",
-    "footer.communityText": "Road journal, technical articles, and stories from the community.",
+    "footer.communityTitle": "VlahX Community",
+    "footer.communityText": "Join the VlahX community — sharing ideas, projects, and technological innovations.",
     "footer.rights": "All rights reserved.",
     "footer.management": "Administration",
     "footer.myAccount": "👤 My Account",

@@ -60,16 +60,20 @@ async function reloadMediaLibrary() {
 
   try {
     const resp = await fetch(url);
+    if (resp.status === 401) {
+      grid.innerHTML = '<div class="col-12 text-center text-danger py-5">⚠️ Trebuie să fii autentificat pentru a accesa biblioteca media. <a href="/admin/login" class="text-primary fw-bold ms-1">Conectează-te ↗</a></div>';
+      return;
+    }
     const data = await resp.json();
     if (data.ok && Array.isArray(data.files)) {
       currentMediaFiles = data.files;
       renderMediaGrid(currentMediaFiles);
     } else {
-      grid.innerHTML = '<div class="col-12 text-center text-danger py-5">Error loading files.</div>';
+      grid.innerHTML = `<div class="col-12 text-center text-danger py-5">Eroare la încărcare: ${data.error || 'Necunoscută'}</div>`;
     }
   } catch (err) {
     console.error(err);
-    grid.innerHTML = '<div class="col-12 text-center text-danger py-5">Network error while loading files.</div>';
+    grid.innerHTML = '<div class="col-12 text-center text-danger py-5">Eroare de rețea la încărcarea fișierelor.</div>';
   }
 }
 

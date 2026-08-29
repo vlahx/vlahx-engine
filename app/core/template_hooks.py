@@ -26,6 +26,7 @@ _sidebar_top: list[tuple[int, Callable[[Request], str]]] = []
 _sidebar_search: list[tuple[int, Callable[[Request], str]]] = []
 _sidebar_widgets: list[tuple[int, Callable[[Request], str]]] = []
 _sidebar_bottom: list[tuple[int, Callable[[Request], str]]] = []
+_login_options: list[tuple[int, Callable[[Request], str]]] = []
 
 
 def clear_post_article_footers() -> None:
@@ -45,6 +46,7 @@ def clear_post_article_footers() -> None:
     _sidebar_search.clear()
     _sidebar_widgets.clear()
     _sidebar_bottom.clear()
+    _login_options.clear()
 
 
 def register_navbar_link(renderer: Callable[[Request], str], *, order: int = 100) -> None:
@@ -310,3 +312,20 @@ def render_sidebar_bottom(request: Request) -> str:
         except Exception:
             logger.exception("sidebar_bottom renderer failed")
     return "\n".join(parts)
+
+
+def register_login_options(renderer: Callable[[Request], str], *, order: int = 100) -> None:
+    _login_options.append((order, renderer))
+    _login_options.sort(key=lambda t: t[0])
+
+
+def render_login_options(request: Request) -> str:
+    parts = []
+    for _, fn in _login_options:
+        try:
+            c = (fn(request) or "").strip()
+            if c: parts.append(c)
+        except Exception:
+            logger.exception("login_options renderer failed")
+    return "\n".join(parts)
+

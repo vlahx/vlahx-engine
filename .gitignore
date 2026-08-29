@@ -46,3 +46,11 @@ app/static/downloads/*
 *_bak*/
 *_root_old/
 db_old_root/
+
+# Internal notes & rules
+internal_notes/
+RULES.md
+TODO.md
+
+# Storage folder for repo.vlahx.org
+app/storage/

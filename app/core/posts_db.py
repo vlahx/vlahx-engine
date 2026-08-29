@@ -88,6 +88,8 @@ class CategoryView:
     depth: int = 0
     # Rând în ``categories``; None pentru etichete deduse doar din postări (fără rând în DB).
     db_id: int | None = None
+    description: str | None = ""
+    translations_json: str | None = "{}"
 
 
 def _resolve_author_info(db: Session, author_id: int | None) -> tuple[int | None, str | None, str | None, str | None]:
@@ -110,6 +112,7 @@ class PostView:
     excerpt: str
     content_html: str
     published_at: datetime | None
+    id: int | None = None
     category: str | None = None
     draft: bool = False
     hero_image_url: str | None = None
@@ -160,7 +163,14 @@ def _category_filter_name(db: Session, category: str | None) -> str | None:
 
 
 def list_posts(
-    db: Session, *, include_drafts: bool = False, category: str | None = None, author: str | None = None, locale: str | None = None, exclude_static: bool = True
+    db: Session,
+    *,
+    q: str | None = None,
+    include_drafts: bool = False,
+    category: str | None = None,
+    author: str | None = None,
+    locale: str | None = None,
+    exclude_static: bool = True,
 ) -> list[PostView]:
     stmt = select(PostModel)
     if not include_drafts:
@@ -169,6 +179,23 @@ def list_posts(
         category_name = _category_filter_name(db, category)
         if category_name:
             stmt = stmt.where((func.lower(PostModel.category) == func.lower(category_name)) | (PostModel.category == category_name))
+    if q and q.strip():
+        term = f"%{q.strip().lower()}%"
+        trans_subq = (
+            select(PostTranslationModel.post_id)
+            .where(
+                func.lower(PostTranslationModel.title).like(term)
+                | func.lower(PostTranslationModel.excerpt).like(term)
+                | func.lower(PostTranslationModel.content_html).like(term)
+            )
+        )
+        stmt = stmt.where(
+            func.lower(PostModel.title).like(term)
+            | func.lower(PostModel.excerpt).like(term)
+            | func.lower(PostModel.content_html).like(term)
+            | func.lower(PostModel.slug).like(term)
+            | PostModel.id.in_(trans_subq)
+        )
     sort_ts = func.coalesce(PostModel.published_at, PostModel.created_at)
     stmt = stmt.order_by(sort_ts.desc(), PostModel.id.desc())
 
@@ -197,6 +224,7 @@ def list_posts(
         aid, aname, auser, aavatar = _resolve_author_info(db, p.author_id)
         results.append(
             PostView(
+                id=p.id,
                 slug=p.slug,
                 title=title,
                 excerpt=excerpt,
@@ -245,6 +273,7 @@ def get_post(db: Session, slug: str, locale: str | None = None) -> PostView | No
 
     aid, aname, auser, aavatar = _resolve_author_info(db, row.author_id)
     return PostView(
+        id=row.id,
         slug=row.slug,
         title=title,
         excerpt=excerpt,
@@ -261,6 +290,39 @@ def get_post(db: Session, slug: str, locale: str | None = None) -> PostView | No
         author_avatar=aavatar,
         meta_keywords=meta_keywords,
     )
+
+
+def get_adjacent_posts(
+    db: Session, current_post_id: int, locale: str | None = None
+) -> tuple[PostView | None, PostView | None]:
+    """
+    Returnează perechea (prev_post, next_post) bazată pe ID:
+    - prev_post: articolul publicat cu ID < current_post_id, ordonat descendent după ID.
+    - next_post: articolul publicat cu ID > current_post_id, ordonat ascendent după ID.
+    """
+    if not current_post_id:
+        return (None, None)
+
+    prev_stmt = (
+        select(PostModel)
+        .where((PostModel.id < current_post_id) & (PostModel.draft == False))
+        .order_by(PostModel.id.desc())
+        .limit(1)
+    )
+    prev_row = db.execute(prev_stmt).scalars().first()
+
+    next_stmt = (
+        select(PostModel)
+        .where((PostModel.id > current_post_id) & (PostModel.draft == False))
+        .order_by(PostModel.id.asc())
+        .limit(1)
+    )
+    next_row = db.execute(next_stmt).scalars().first()
+
+    prev_post = get_post(db, prev_row.slug, locale=locale) if prev_row else None
+    next_post = get_post(db, next_row.slug, locale=locale) if next_row else None
+
+    return (prev_post, next_post)
 
 
 def _category_full_path(category: CategoryModel) -> str:
@@ -296,6 +358,8 @@ def list_categories(db: Session) -> list[CategoryView]:
                     slug=category_row.slug,
                     depth=depth,
                     db_id=category_row.id,
+                    description=getattr(category_row, "description", "") or "",
+                    translations_json=getattr(category_row, "translations_json", "{}") or "{}",
                 )
             )
             walk(category_row.id, depth + 1)
@@ -312,7 +376,7 @@ def list_categories(db: Session) -> list[CategoryView]:
     for value in sorted({c for c in post_categories if c}):
         if not any(view.name == value for view in ordered):
             ordered.append(
-                CategoryView(name=value, slug=slugify(value), depth=0, db_id=None)
+                CategoryView(name=value, slug=slugify(value), depth=0, db_id=None, description="", translations_json="{}")
             )
 
     return ordered
@@ -329,7 +393,9 @@ def _resolve_parent_category(
     """
     Părinte din admin: fie ID numeric (formularul trimite category.id), fie slug.
     """
-    raw = (parent_ref or "").strip()
+    if not parent_ref:
+        return None
+    raw = str(parent_ref).strip()
     if not raw:
         return None
     if raw.isdigit():
@@ -339,7 +405,7 @@ def _resolve_parent_category(
 
 
 def create_category(
-    db: Session, name: str, parent_slug: str | None = None
+    db: Session, name: str, parent_slug: str | None = None, description: str | None = "", translations_json: str | None = "{}"
 ) -> CategoryModel:
     """
     Creează sau actualizează o categorie.
@@ -369,8 +435,17 @@ def create_category(
     existing = get_category_by_slug(db, slug)
 
     if existing:
+        updated = False
         if parent and existing.parent_id != parent.id:
             existing.parent_id = parent.id
+            updated = True
+        if description is not None and description != "":
+            existing.description = description.strip()
+            updated = True
+        if translations_json is not None and translations_json != "":
+            existing.translations_json = translations_json.strip()
+            updated = True
+        if updated:
             db.commit()
             db.refresh(existing)
 
@@ -378,7 +453,11 @@ def create_category(
 
     # Creație nouă de categorie
     category = CategoryModel(
-        name=name_clean, slug=slug, parent_id=(parent.id if parent else None)
+        name=name_clean,
+        slug=slug,
+        parent_id=(parent.id if parent else None),
+        description=(description or "").strip(),
+        translations_json=(translations_json or "{}").strip()
     )
     db.add(category)
     db.commit()
@@ -549,6 +628,7 @@ def save_post(
     draft: bool,
     meta_keywords: str | None = None,
     published_at: datetime | None = None,
+    original_slug: str | None = None,
 ) -> PostView:
     now = datetime.now(timezone.utc)
     slug_final = slugify(slug or title)
@@ -565,7 +645,8 @@ def save_post(
     def _normalize_published_at(dt: datetime) -> datetime:
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
-    stmt = select(PostModel).where(PostModel.slug == slug_final)
+    lookup_slug = original_slug.strip() if original_slug and original_slug.strip() else slug_final
+    stmt = select(PostModel).where(PostModel.slug == lookup_slug)
     existing = db.execute(stmt).scalars().first()
 
     was_draft_before: bool | None = None
@@ -604,7 +685,8 @@ def save_post(
             published_at_final = _normalize_published_at(published_at)
         else:
             published_at_final = existing.published_at
-        existing.author_id = author_id
+        if not existing.author_id:
+            existing.author_id = author_id
         existing.title = (title or slug_final).strip()
         existing.excerpt = (excerpt or "").strip()
         existing.category = cat_clean

@@ -116,6 +116,12 @@ ROOT_SLUG_BLOCKLIST = frozenset(
         "login",
         "logout",
         "newsletter",
+        "hosting",
+        "blog",
+        "shop",
+        "cart",
+        "checkout",
+        "lang",
     }
 )
 
@@ -190,7 +196,11 @@ def get_site_display_name(locale: str | None = None) -> str:
 def get_site_tagline(locale: str | None = None) -> str:
     d = {**_runtime(), **_db_runtime()}
     raw = _get_localized_setting(d, "SITE_TAGLINE", locale, SITE_TAGLINE)
-    return raw or SITE_TAGLINE
+    if raw:
+        return raw
+    if locale == "ro":
+        return "O platformă web modulară. Construiește, extinde și personalizează aplicația ta cu plugin-uri și teme."
+    return "A modular web platform. Build, extend and customize your web application with plugins and themes."
 
 
 def get_site_favicon_path() -> str:
@@ -212,7 +222,7 @@ def get_site_brand_image_path() -> str:
 
 
 def get_og_card_image_path() -> str:
-    d = _runtime()
+    d = {**_runtime(), **_db_runtime()}
     raw = d.get("OG_CARD_IMAGE_PATH")
     if isinstance(raw, str) and raw.strip():
         v = raw.strip()
@@ -220,6 +230,9 @@ def get_og_card_image_path() -> str:
             return v if v.startswith("/") else f"/{v}"
     if OG_CARD_IMAGE_PATH and "camionagiul" not in OG_CARD_IMAGE_PATH:
         return OG_CARD_IMAGE_PATH if OG_CARD_IMAGE_PATH.startswith("/") else f"/{OG_CARD_IMAGE_PATH}"
+    b = get_site_brand_image_path()
+    if b:
+        return b if b.startswith("/") else f"/{b}"
     return ""
 
 
@@ -273,38 +286,37 @@ def _runtime_static_nav_items(d: dict) -> list[dict[str, str]]:
             url = str(item.get("url") or item.get("href") or "").strip()
             slug = str(item.get("slug") or item.get("value") or "").strip()
             label = str(item.get("label") or item.get("fixed_label") or item.get("title") or slug or url).strip()
+            labels_dict = item.get("labels") if isinstance(item.get("labels"), dict) else {}
             target = str(item.get("target") or "_self").strip()
-            if not label and not url and not slug:
+            loc = str(item.get("location") or "navbar").strip().lower()
+            if loc not in ("navbar", "footer", "both"):
+                loc = "navbar"
+            if not label and not url and not slug and not labels_dict:
                 continue
             items.append({
                 "slug": slug,
                 "label": label,
                 "fixed_label": label,
+                "labels": labels_dict,
                 "url": url,
                 "href": url if url else (f"/{slug.strip('/')}" if slug else "/"),
                 "target": target if target in ("_self", "_blank") else "_self",
+                "location": loc,
             })
     return items
 
 
 def _get_static_nav_items_raw() -> list[dict[str, str]]:
-    d = _runtime()
-    items = _runtime_static_nav_items(d)
-    if items:
-        return items
+    d = {**_runtime(), **_db_runtime()}
+    if "STATIC_NAV_LINKS" in d:
+        return _runtime_static_nav_items(d)
 
     raw_single = d.get("NAV_FIXED_POST_SLUG")
     if isinstance(raw_single, str) and raw_single.strip():
         slug = raw_single.strip()
         label = str(d.get("NAV_FIXED_POST_LABEL") or slug).strip()
-        return [{"slug": slug, "label": label, "fixed_label": label, "url": f"/{slug}", "href": f"/{slug}", "target": "_self"}]
+        return [{"slug": slug, "label": label, "fixed_label": label, "labels": {}, "url": f"/{slug}", "href": f"/{slug}", "target": "_self", "location": "navbar"}]
 
-    if not d:
-        return []
-
-    legacy = d.get("STATIC_NAV_LINKS")
-    if isinstance(legacy, list):
-        return _runtime_static_nav_items(d)
     return []
 
 
@@ -350,9 +362,9 @@ def invalidate_nav_fixed_post_links_cache() -> None:
     _NAV_FIXED_POST_LINKS_CACHE.clear()
 
 
-def get_nav_fixed_post_links(locale: str | None = None) -> list[dict[str, str]]:
+def get_nav_fixed_post_links(locale: str | None = None, location: str | None = None) -> list[dict[str, str]]:
     global _NAV_FIXED_POST_LINKS_CACHE
-    cache_key = (locale or "default").strip().lower()
+    cache_key = f"{locale or 'default'}_{location or 'all'}".strip().lower()
     if cache_key in _NAV_FIXED_POST_LINKS_CACHE:
         return _NAV_FIXED_POST_LINKS_CACHE[cache_key]
 
@@ -376,11 +388,17 @@ def get_nav_fixed_post_links(locale: str | None = None) -> list[dict[str, str]]:
                     translated_titles.setdefault(tr.post_id, tr.title.strip())
 
             for item in _get_static_nav_items_raw():
+                item_loc = str(item.get("location") or "navbar").strip().lower()
+                if location and item_loc not in (location.lower(), "both"):
+                    continue
+
                 url = str(item.get("url") or item.get("href") or "").strip()
                 slug = str(item.get("slug") or "").strip()
                 target = str(item.get("target") or "_self").strip()
                 target = target if target in ("_self", "_blank") else "_self"
-                fallback = str(item.get("label") or item.get("fixed_label") or slug or url).strip()
+                labels_dict = item.get("labels") if isinstance(item.get("labels"), dict) else {}
+                loc_label = labels_dict.get(locale) if (locale and labels_dict.get(locale)) else None
+                fallback = str(loc_label or item.get("label") or item.get("fixed_label") or slug or url).strip()
 
                 if url and not slug:
                     items.append({
@@ -390,6 +408,7 @@ def get_nav_fixed_post_links(locale: str | None = None) -> list[dict[str, str]]:
                         "url": url,
                         "href": url,
                         "target": target,
+                        "location": item_loc,
                     })
                     continue
 
@@ -402,6 +421,7 @@ def get_nav_fixed_post_links(locale: str | None = None) -> list[dict[str, str]]:
                             "url": url,
                             "href": url,
                             "target": target,
+                            "location": item_loc,
                         })
                     continue
 
@@ -412,6 +432,8 @@ def get_nav_fixed_post_links(locale: str | None = None) -> list[dict[str, str]]:
                         title = translated_titles.get(row.id)
                         if title and title.strip():
                             label = title.strip()
+                        elif loc_label and loc_label.strip():
+                            label = loc_label.strip()
                     item_href = url if url else post_public_path(slug)
                     items.append({
                         "slug": slug,
@@ -420,6 +442,7 @@ def get_nav_fixed_post_links(locale: str | None = None) -> list[dict[str, str]]:
                         "url": item_href,
                         "href": item_href,
                         "target": target,
+                        "location": item_loc,
                     })
                 elif url:
                     items.append({
@@ -429,6 +452,7 @@ def get_nav_fixed_post_links(locale: str | None = None) -> list[dict[str, str]]:
                         "url": url,
                         "href": url,
                         "target": target,
+                        "location": item_loc,
                     })
     except Exception:
         pass
@@ -479,6 +503,10 @@ def is_static_page_slug(slug: str) -> bool:
     if not slug:
         return False
     s = slug.strip().lower()
+    if s in ROOT_SLUG_BLOCKLIST:
+        return False
+    if s in ("home", "about", "despre", "contact", "privacy", "terms", "termeni", "politica"):
+        return True
     return any(str(item.get("slug") or "").strip().lower() == s for item in _get_static_nav_items_raw())
 
 

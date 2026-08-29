@@ -2,7 +2,7 @@
 <header class="navbar navbar-expand-lg border-bottom sticky-top" style="background: transparent;">
   <div class="container-fluid px-4 py-3">
     <div class="d-flex align-items-center gap-2 me-2">
-      <a class="navbar-brand fw-semibold d-flex align-items-center mb-0" href="/">
+      <a class="navbar-brand fw-semibold d-flex align-items-center mb-0" href="{{ url_lang('/') }}">
         {% if site_nav_icon_abs %}
         <img class="me-2 rounded-1 flex-shrink-0" src="{{ site_nav_icon_abs|e }}" width="28" height="28" alt="" style="object-fit:contain" loading="lazy" decoding="async" />
         {% else %}
@@ -37,7 +37,7 @@
           {% for nav_p in fixed_nav_posts %}
           <li class="nav-item">
             <a class="nav-link py-1 px-3 border rounded-pill bg-body-tertiary text-body fw-semibold me-1" 
-               href="{{ nav_p.href or nav_p.url or post_public_path(nav_p.slug) }}"
+               href="{{ url_lang(nav_p.href or nav_p.url or post_public_path(nav_p.slug)) }}"
                target="{{ nav_p.target|default('_self')|e }}"
                {% if nav_p.target == '_blank' %}rel="noopener noreferrer"{% endif %}>
               {{ nav_p.fixed_label or nav_p.label }}

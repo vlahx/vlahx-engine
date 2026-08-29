@@ -28,7 +28,7 @@ engine = create_engine(
 def _sqlite_pragma(dbapi_conn, _connection_record) -> None:
     cur = dbapi_conn.cursor()
     cur.execute("PRAGMA foreign_keys=ON")
-    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA journal_mode=DELETE")
     cur.execute("PRAGMA synchronous=NORMAL")
     cur.close()
 
@@ -71,6 +71,22 @@ def init_db() -> None:
                 db.commit()
             except Exception:
                 db.rollback()
+
+        # Migration for categories table description and translations_json fields
+        res_cats = db.execute(text("PRAGMA table_info(categories)"))
+        cat_cols = [row[1] for row in res_cats.fetchall()]
+        if "description" not in cat_cols:
+            try:
+                db.execute(text("ALTER TABLE categories ADD COLUMN description TEXT DEFAULT ''"))
+                db.commit()
+            except Exception:
+                db.rollback()
+        if "translations_json" not in cat_cols:
+            try:
+                db.execute(text("ALTER TABLE categories ADD COLUMN translations_json TEXT DEFAULT '{}'"))
+                db.commit()
+            except Exception:
+                db.rollback()
         if "dev_requested_at" not in user_cols:
             try:
                 db.execute(text("ALTER TABLE users ADD COLUMN dev_requested_at DATETIME"))
@@ -83,12 +99,37 @@ def init_db() -> None:
                 db.commit()
             except Exception:
                 db.rollback()
-        if "bio" not in user_cols:
+        if "password_hash" not in user_cols:
             try:
-                db.execute(text("ALTER TABLE users ADD COLUMN bio TEXT"))
+                db.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(256)"))
                 db.commit()
             except Exception:
                 db.rollback()
+        if "email_verified" not in user_cols:
+            try:
+                db.execute(text("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT 0"))
+                db.commit()
+            except Exception:
+                db.rollback()
+        if "verification_token" not in user_cols:
+            try:
+                db.execute(text("ALTER TABLE users ADD COLUMN verification_token VARCHAR(128)"))
+                db.commit()
+            except Exception:
+                db.rollback()
+        if "onboarding_intent" not in user_cols:
+            try:
+                db.execute(text("ALTER TABLE users ADD COLUMN onboarding_intent VARCHAR(64)"))
+                db.commit()
+            except Exception:
+                db.rollback()
+        if "deletion_requested_at" not in user_cols:
+            try:
+                db.execute(text("ALTER TABLE users ADD COLUMN deletion_requested_at DATETIME"))
+                db.commit()
+            except Exception:
+                db.rollback()
+
 
     with SessionLocal() as db:
         if db.execute(

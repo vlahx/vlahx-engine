@@ -74,6 +74,14 @@
                     📄 Pagină statică: {{ p.title|e }} ({{ p.slug|e }})
                   </option>
                   {% endfor %}
+                  {% if homepage_mode.startswith('page:') %}
+                    {% set cur_page_slug = homepage_mode[5:] %}
+                    {% if not static_pages|selectattr('slug', 'equalto', cur_page_slug)|list %}
+                    <option value="page:{{ cur_page_slug|e }}" selected>
+                      📄 Pagină statică: {{ cur_page_slug|e }} ({{ cur_page_slug|e }})
+                    </option>
+                    {% endif %}
+                  {% endif %}
                   {% if is_plugin_active and is_plugin_active('minishop') %}
                   <option value="shop" {% if homepage_mode == 'shop' %}selected{% endif %}>🛍️ Magazin Online (Minishop)</option>
                   {% endif %}
@@ -83,65 +91,182 @@
                 </small>
               </div>
             </div>
-          </div>
+
           <div class="card card-modern">
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="h5 mb-0">⚡ Meniu Navigare Navbar</h2>
+                <h2 class="h5 mb-0">⚡ Meniu Navigare Navbar & Footer</h2>
                 <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="addNavRow()">
                   ➕ Adaugă Link
                 </button>
               </div>
               <p class="text-secondary small mb-3">
-                Adaugă linkuri în bara de navigare. Poți pune rute interne (ex: <code>/blog</code>, <code>/shop</code>, <code>/despre-mine</code>) sau URL-uri externe cu deschidere în tab nou (<code>target="_blank"</code>).
+                Adaugă linkuri în site și specifică eticheta pentru fiecare limbă activă. Poți alege unde se afișează fiecare link (🧭 Navbar sus, 🦶 Footer subsol, sau 🌐 Ambele).
               </p>
 
-              <div id="nav-rows-container" class="vstack gap-2">
+              <div id="nav-rows-container" class="vstack gap-3">
                 {% for link in nav_items %}
-                <div class="row g-2 align-items-center nav-row">
-                  <div class="col-4">
-                    <input type="text" name="nav_label" class="form-control form-control-sm" value="{{ link.label|e }}" placeholder="Etichetă (ex: Blog)" required />
+                <div class="p-3 border rounded bg-body-tertiary nav-row position-relative" draggable="true">
+                  <div class="row g-2 align-items-center mb-2">
+                    <div class="col-12 col-md-5 d-flex align-items-center gap-2">
+                      <span class="drag-handle text-secondary fs-5" style="cursor: grab;" title="Trage pentru reordonare">⋮⋮</span>
+                      <div class="flex-grow-1">
+                        <label class="form-label small fw-semibold text-secondary mb-1">Cale / URL</label>
+                        <input type="text" name="nav_url" class="form-control form-control-sm" value="{{ link.url or link.href|e }}" placeholder="Cale/URL (ex: /privacy)" />
+                      </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                      <label class="form-label small fw-semibold text-secondary mb-1">Plasare Link</label>
+                      <select name="nav_location" class="form-select form-select-sm">
+                        <option value="navbar" {% if link.location == 'navbar' or not link.location %}selected{% endif %}>🧭 Navbar (sus)</option>
+                        <option value="footer" {% if link.location == 'footer' %}selected{% endif %}>🦶 Footer (subsol)</option>
+                        <option value="both" {% if link.location == 'both' %}selected{% endif %}>🌐 Ambele</option>
+                      </select>
+                    </div>
+                    <div class="col-4 col-md-2">
+                      <label class="form-label small fw-semibold text-secondary mb-1">Target</label>
+                      <select name="nav_target" class="form-select form-select-sm">
+                        <option value="_self" {% if link.target == '_self' or not link.target %}selected{% endif %}>_self</option>
+                        <option value="_blank" {% if link.target == '_blank' %}selected{% endif %}>_blank ↗</option>
+                      </select>
+                    </div>
+                    <div class="col-12 col-md-2 text-end align-self-end mb-1">
+                      <div class="btn-group btn-group-sm w-100" role="group">
+                        <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowUp(this)" title="Mută mai sus">⬆️</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowDown(this)" title="Mută mai jos">⬇️</button>
+                        <button type="button" class="btn btn-outline-danger" onclick="this.closest('.nav-row').remove()" title="Șterge link">🗑️</button>
+                      </div>
+                    </div>
                   </div>
-                  <div class="col-5">
-                    <input type="text" name="nav_url" class="form-control form-control-sm" value="{{ link.url or link.href|e }}" placeholder="Cale/URL (ex: /blog sau https://...)" required />
-                  </div>
-                  <div class="col-2">
-                    <select name="nav_target" class="form-select form-select-sm">
-                      <option value="_self" {% if link.target == '_self' or not link.target %}selected{% endif %}>_self (Același tab)</option>
-                      <option value="_blank" {% if link.target == '_blank' %}selected{% endif %}>_blank (Tab nou ↗)</option>
-                    </select>
-                  </div>
-                  <div class="col-1 text-end">
-                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.nav-row').remove()">🗑️</button>
+
+                  <div class="row g-2 align-items-center pt-2 border-top">
+                    <div class="col-12"><span class="small fw-bold text-dark">🌐 Etichete per limbă:</span></div>
+                    {% set item_labels = link.labels if link.labels and link.labels is mapping else {} %}
+                    {% for loc in active_locales %}
+                    {% set cur_val = item_labels.get(loc.code) or (link.label if loop.first else '') %}
+                    <div class="col-12 col-sm-6 col-md-4">
+                      <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-body fw-bold text-uppercase">{{ loc.code }}</span>
+                        <input type="text" name="nav_label_{{ loc.code }}" class="form-control" value="{{ cur_val|e }}" placeholder="Etichetă {{ loc.name }}..." />
+                      </div>
+                    </div>
+                    {% endfor %}
                   </div>
                 </div>
                 {% endfor %}
               </div>
 
               <script>
+              function moveNavRowUp(btn) {
+                const row = btn.closest('.nav-row');
+                if (row && row.previousElementSibling) {
+                  row.parentNode.insertBefore(row, row.previousElementSibling);
+                  highlightRow(row);
+                }
+              }
+
+              function moveNavRowDown(btn) {
+                const row = btn.closest('.nav-row');
+                if (row && row.nextElementSibling) {
+                  row.parentNode.insertBefore(row.nextElementSibling, row);
+                  highlightRow(row);
+                }
+              }
+
+              function highlightRow(row) {
+                row.classList.add('border-primary', 'shadow-sm');
+                setTimeout(() => row.classList.remove('border-primary', 'shadow-sm'), 600);
+              }
+
               function addNavRow() {
                 const container = document.getElementById('nav-rows-container');
                 const row = document.createElement('div');
-                row.className = 'row g-2 align-items-center nav-row mt-1';
+                row.className = 'p-3 border rounded bg-body-tertiary nav-row position-relative';
+                row.setAttribute('draggable', 'true');
+                
+                let localeInputsHtml = '';
+                {% for loc in active_locales %}
+                localeInputsHtml += `
+                  <div class="col-12 col-sm-6 col-md-4">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-body fw-bold text-uppercase">{{ loc.code }}</span>
+                      <input type="text" name="nav_label_{{ loc.code }}" class="form-control" placeholder="Etichetă {{ loc.name }}..." />
+                    </div>
+                  </div>
+                `;
+                {% endfor %}
+
                 row.innerHTML = `
-                  <div class="col-4">
-                    <input type="text" name="nav_label" class="form-control form-control-sm" placeholder="Etichetă (ex: Blog)" required />
+                  <div class="row g-2 align-items-center mb-2">
+                    <div class="col-12 col-md-5 d-flex align-items-center gap-2">
+                      <span class="drag-handle text-secondary fs-5" style="cursor: grab;" title="Trage pentru reordonare">⋮⋮</span>
+                      <div class="flex-grow-1">
+                        <label class="form-label small fw-semibold text-secondary mb-1">Cale / URL</label>
+                        <input type="text" name="nav_url" class="form-control form-control-sm" placeholder="Cale/URL (ex: /privacy)" />
+                      </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                      <label class="form-label small fw-semibold text-secondary mb-1">Plasare Link</label>
+                      <select name="nav_location" class="form-select form-select-sm">
+                        <option value="navbar" selected>🧭 Navbar (sus)</option>
+                        <option value="footer">🦶 Footer (subsol)</option>
+                        <option value="both">🌐 Ambele</option>
+                      </select>
+                    </div>
+                    <div class="col-4 col-md-2">
+                      <label class="form-label small fw-semibold text-secondary mb-1">Target</label>
+                      <select name="nav_target" class="form-select form-select-sm">
+                        <option value="_self" selected>_self</option>
+                        <option value="_blank">_blank ↗</option>
+                      </select>
+                    </div>
+                    <div class="col-12 col-md-2 text-end align-self-end mb-1">
+                      <div class="btn-group btn-group-sm w-100" role="group">
+                        <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowUp(this)" title="Mută mai sus">⬆️</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowDown(this)" title="Mută mai jos">⬇️</button>
+                        <button type="button" class="btn btn-outline-danger" onclick="this.closest('.nav-row').remove()" title="Șterge link">🗑️</button>
+                      </div>
+                    </div>
                   </div>
-                  <div class="col-5">
-                    <input type="text" name="nav_url" class="form-control form-control-sm" placeholder="Cale/URL (ex: /blog sau https://...)" required />
-                  </div>
-                  <div class="col-2">
-                    <select name="nav_target" class="form-select form-select-sm">
-                      <option value="_self" selected>_self (Același tab)</option>
-                      <option value="_blank">_blank (Tab nou ↗)</option>
-                    </select>
-                  </div>
-                  <div class="col-1 text-end">
-                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.nav-row').remove()">🗑️</button>
+
+                  <div class="row g-2 align-items-center pt-2 border-top">
+                    <div class="col-12"><span class="small fw-bold text-dark">🌐 Etichete per limbă:</span></div>
+                    ${localeInputsHtml}
                   </div>
                 `;
                 container.appendChild(row);
               }
+
+              document.addEventListener('DOMContentLoaded', function() {
+                const container = document.getElementById('nav-rows-container');
+                let draggedItem = null;
+
+                container.addEventListener('dragstart', function(e) {
+                  const target = e.target.closest('.nav-row');
+                  if (target) {
+                    draggedItem = target;
+                    target.classList.add('opacity-50');
+                    e.dataTransfer.effectAllowed = 'move';
+                  }
+                });
+
+                container.addEventListener('dragend', function(e) {
+                  if (draggedItem) {
+                    draggedItem.classList.remove('opacity-50');
+                    draggedItem = null;
+                  }
+                });
+
+                container.addEventListener('dragover', function(e) {
+                  e.preventDefault();
+                  const targetRow = e.target.closest('.nav-row');
+                  if (targetRow && targetRow !== draggedItem) {
+                    const rect = targetRow.getBoundingClientRect();
+                    const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+                    container.insertBefore(draggedItem, next ? targetRow.nextSibling : targetRow);
+                  }
+                });
+              });
               </script>
             </div>
           </div>

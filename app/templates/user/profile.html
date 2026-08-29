@@ -52,6 +52,29 @@
         </div>
       </div>
     </div>
+  {% if request.query_params.get('msg') %}
+  <div class="alert alert-success alert-dismissible fade show rounded-4 shadow-sm mb-4" role="alert">
+    <strong>✅ Succes:</strong> {{ request.query_params.get('msg') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+
+  <!-- Hosting Provisioning & Request Banner Card -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4 p-4 bg-body-tertiary border">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="fs-4">🌐</span>
+          <h4 class="fw-bold mb-0 text-body">Găzduire Website & Magazin (Hosting pe RPi)</h4>
+        </div>
+        <p class="text-secondary small mb-0 mt-1">Vrei propriul tău website sau magazin găzduit direct pe infrastructura noastră cu certificat SSL automat și verificator de domeniu?</p>
+      </div>
+      <div>
+        <a href="/hosting" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold shadow-sm text-white">
+          🚀 Solicită Găzduire Site →
+        </a>
+      </div>
+    </div>
   </div>
 
   {% if has_role('admin', 'developer') %}
@@ -244,6 +267,57 @@
               }
             });
           </script>
+          <!-- Danger Zone: Ștergere Cont -->
+          <div class="mt-5 pt-4 border-top">
+            <div class="card border-danger border-opacity-25 bg-danger bg-opacity-10 rounded-4">
+              <div class="card-body p-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                  <div>
+                    <h5 class="fw-bold text-danger mb-1">{{ t('profile.deleteAccount.cardTitle') if t else '⚠️ Ștergere Cont & Perioadă de Grație' }}</h5>
+                    <p class="text-secondary small mb-0">
+                      {{ t('profile.deleteAccount.cardHelp') if t else 'Prin inițierea ștergerii, contul tău va intra într-o perioadă de grație de 30 de zile. Te poți răzgândi și reautentifica oricând în 30 de zile pentru a-ți recupera contul. După 30 de zile, toate datele și fișierele tale vor fi șterse definitiv de pe disc și din baza de date.' }}
+                    </p>
+                  </div>
+                  <button type="button" class="btn btn-outline-danger fw-bold flex-shrink-0" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                    {{ t('profile.deleteAccount.btn') if t else '🗑️ Solicită Ștergerea Contului' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Confirmare Ștergere Cont -->
+          <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-danger text-white">
+                  <h5 class="modal-title fw-bold" id="deleteAccountModalLabel">{{ t('profile.deleteAccount.modalTitle') if t else '⚠️ Confirmă Solicitarea de Ștergere' }}</h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                  <p class="fw-semibold text-dark mb-2">{{ t('profile.deleteAccount.modalQuestion') if t else 'Ești sigur că dorești să soliciți ștergerea contului tău VlahX?' }}</p>
+                  <ul class="text-secondary small mb-3">
+                    <li>{{ t('profile.deleteAccount.item1') if t else 'Vei fi deconectat imediat de pe platformă.' }}</li>
+                    <li>{{ t('profile.deleteAccount.item2') if t else 'Contul va intra în perioada de grație de 30 de zile.' }}</li>
+                    <li>{{ t('profile.deleteAccount.item3') if t else 'Te poți reautentifica în intervalul de 30 de zile pentru a anula ștergerea.' }}</li>
+                    <li>{{ t('profile.deleteAccount.item4') if t else 'După 30 de zile, datele tale vor fi eliminate definitiv și ireversibil.' }}</li>
+                  </ul>
+                  <form action="/profile/delete-account" method="POST" id="deleteAccountForm">
+                    <div class="form-check mb-3">
+                      <input class="form-check-input" type="checkbox" id="confirm_delete_check" required>
+                      <label class="form-check-label small fw-bold text-dark" for="confirm_delete_check">
+                        {{ t('profile.deleteAccount.confirmCheck') if t else 'Înțeleg că am 30 de zile să mă răzgândesc înainte ca datele mele să fie șterse definitiv.' }}
+                      </label>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2">
+                      <button type="button" class="btn btn-secondary fw-semibold" data-bs-dismiss="modal">{{ t('profile.deleteAccount.cancelBtn') if t else 'Anulează' }}</button>
+                      <button type="submit" class="btn btn-danger fw-bold">{{ t('profile.deleteAccount.confirmBtn') if t else '🗑️ Programează Ștergerea (30 Zile)' }}</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -1,11 +1,11 @@
 services:
-  blog:
+  dev-blog:
     build: .
-    image: fastapi-blog:3.11-bookworm
-    container_name: app.blog
+    image: dev-vlahx-engine:latest
+    container_name: dev-vlahx
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8002:8000"
     env_file:
       - .env
     environment:
@@ -17,9 +17,8 @@ services:
       - ./main.py:/app/main.py
       - ./run.py:/app/run.py
     networks:
-        s366:
-            ipv4_address: 172.27.0.16
+      - s366
 
 networks:
-    s366:
-        external: true
+  s366:
+    external: true

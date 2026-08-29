@@ -38,14 +38,43 @@ def build_plugin_settings_router(templates) -> APIRouter:
         metadata = load_plugin_metadata(plugin_dir)
         current_settings = get_plugin_settings(plugin_id)
         
+        custom_template = plugin_dir / "templates" / "admin" / f"{plugin_id}_settings.html"
+        custom_template_rel = f"admin/{plugin_id}_settings.html" if (custom_template.is_file() and plugin_id != "vlahx_oauth") else None
+
         context = {
             "title": f"Setări - {plugin.name}",
             "plugin": plugin,
             "metadata": metadata,
             "settings": current_settings,
             "settings_schema": metadata.settings if metadata else {},
+            "custom_settings_template": custom_template_rel,
             "newsletter_subscribers": [],
         }
+        if plugin_id == "vlahx_oauth":
+            try:
+                from app.utils.open_graph import public_site_origin
+                from app.plugins.vlahx_oauth.plugin import PROVIDERS, get_plugin_setting
+                base_url = public_site_origin(request)
+                provider_data = {}
+                for key, p in PROVIDERS.items():
+                    enabled = get_plugin_setting(db, f"{key}_enabled", "false").strip().lower() in ("true", "1", "yes")
+                    client_id = get_plugin_setting(db, f"{key}_client_id", "")
+                    client_secret = get_plugin_setting(db, f"{key}_client_secret", "")
+                    json_credentials = get_plugin_setting(db, f"{key}_json", "")
+                    provider_data[key] = {
+                        "name": p["name"],
+                        "icon": p["icon"],
+                        "color": p["color"],
+                        "enabled": enabled,
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "json_credentials": json_credentials,
+                    }
+                context["providers"] = provider_data
+                context["base_url"] = base_url
+            except Exception as e:
+                pass
+
         if plugin_id == "newsletter":
             try:
                 from app.plugins.newsletter.db import list_all_subscribers

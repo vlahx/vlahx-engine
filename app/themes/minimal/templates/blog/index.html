@@ -10,10 +10,10 @@
 
       {% if categories %}
       <div class="d-flex flex-wrap gap-2 mb-4">
-        <a class="btn btn-sm {% if not current_category %}btn-primary{% else %}btn-outline-primary{% endif %}" href="/">{{ t_safe(translations, 'home.categories.all') }}</a>
+        <a class="btn btn-sm {% if not current_category %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_lang('/') }}">{{ t_safe(translations, 'home.categories.all') }}</a>
         {% for category in categories %}
           <a class="btn btn-sm {% if category.slug == current_category %}btn-primary{% else %}btn-outline-primary{% endif %}"
-             href="/?category={{ category.slug|urlencode }}">
+             href="{{ url_lang('/?category=' + category.slug|urlencode) }}">
             {{ category.name }}
           </a>
         {% endfor %}
@@ -28,7 +28,7 @@
               {% set thumb_url = post.hero_image_url or post.image_url %}
               {% if thumb_url %}
               <div class="col-md-4 col-lg-4">
-                <a href="{{ post_public_path(post.slug) }}" class="d-block h-100">
+                <a href="{{ url_lang(post_public_path(post.slug)) }}" class="d-block h-100">
                   <img src="{{ thumb_url }}" alt="{{ post.title }}" class="img-fluid {% if loop.index is even %}rounded-end{% else %}rounded-start{% endif %} object-fit-cover w-100" style="aspect-ratio: 1200 / 630; min-height: 140px; max-height: 190px;" loading="lazy" decoding="async" />
                 </a>
               </div>
@@ -47,7 +47,7 @@
                     {% endif %}
                   </div>
                   <h2 class="h5 mb-2">
-                    <a class="text-decoration-none text-body fw-semibold" href="{{ post_public_path(post.slug) }}">{{ post.title }}</a>
+                    <a class="text-decoration-none text-body fw-semibold" href="{{ url_lang(post_public_path(post.slug)) }}">{{ post.title }}</a>
                   </h2>
                   {% if post.excerpt %}
                     <p class="text-secondary mb-0 small">{{ post.excerpt }}</p>

@@ -33,6 +33,11 @@
     <!-- Article Main Title -->
     <h1 class="display-4 fw-bold mb-4">{{ post.title }}</h1>
 
+    <!-- Article Series Header Banner -->
+    {% if series_info %}
+      {% include "components/series_banner_header.html" %}
+    {% endif %}
+
     <!-- Plugin Area Header (e.g. Share buttons at top, Author metadata) -->
     {% if plugin_area_article_header %}
     <div class="mb-4">
@@ -41,7 +46,7 @@
     {% endif %}
 
     <!-- Hero Image (1200x630 OpenGraph Banner) -->
-    {% set hero_src = post.hero_image_url or post.image_url %}
+    {% set hero_src = post.hero_image_url or post.image_url or (series_info and series_info.cover_image_url) %}
     {% if hero_src %}
     <figure class="mb-5 text-center">
       <img src="{{ hero_src }}" alt="{{ post.title }}" class="img-fluid rounded-4 shadow-lg w-100 object-fit-cover" style="aspect-ratio: 1200 / 630; max-height: 520px;" loading="lazy" decoding="async" />
@@ -52,6 +57,14 @@
     <div class="post-content mb-5">
       {{ (post.content_html or post.content or post.rendered_content or '') | safe }}
     </div>
+
+    <!-- Article Previous / Next Navigation Bar -->
+    {% include "partials/post_navigation.html" ignore missing %}
+
+    <!-- Article Series Footer Navigation -->
+    {% if series_info %}
+      {% include "components/series_banner_footer.html" %}
+    {% endif %}
 
     <!-- Author Info Card -->
     {% if post.author_name %}
