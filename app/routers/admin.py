@@ -870,7 +870,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                     if "theme.json" in members:
                         try:
                             tj_data = json.loads(zipf.read("theme.json").decode("utf-8"))
-                            cand = _safe_theme_slug(tj_data.get("slug") or "")
+                            cand = _safe_theme_slug(tj_data.get("id") or tj_data.get("slug") or tj_data.get("name") or "")
                             if cand:
                                 slug = cand
                                 mode = "flat_root"
