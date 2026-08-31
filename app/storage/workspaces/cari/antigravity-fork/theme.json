@@ -1,0 +1,9 @@
+{
+  "name": "AG-Themes",
+  "author": "Serge & AG",
+  "version": "1.0.3",
+  "min_engine_version": "2.0.0",
+  "description": "Moved switch locale and toggle theme out of hamburger menu",
+  "supports_color_scheme_toggle": true,
+  "supports_sidebar": true
+}

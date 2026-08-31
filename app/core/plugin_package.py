@@ -86,7 +86,7 @@ def extract_plugin_zip(data: bytes, *, overwrite: bool) -> tuple[str, str]:
                     if "plugin.json" in members:
                         with zipf.open("plugin.json") as jf:
                             meta = json.loads(jf.read().decode("utf-8"))
-                            cand = safe_plugin_id(meta.get("id"))
+                            cand = safe_plugin_id(meta.get("id")) or safe_plugin_id(meta.get("slug"))
                             if cand:
                                 plugin_id = cand
                                 mode = "root_flat"

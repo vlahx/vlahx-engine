@@ -1,0 +1,90 @@
+<footer class="footer-emerald py-5 mt-auto">
+  <div class="container px-4">
+    <div class="row g-4">
+      {# FIX 4: Newsletter widget check in Column 1 #}
+      <div class="col-lg-3 col-md-6">
+        <h5 class="mb-3 d-flex align-items-center gap-2">
+          {% if site_nav_icon_abs %}<img src="{{ site_nav_icon_abs|e }}" width="24" height="24" alt="">{% else %}<span>💎</span>{% endif %}
+          {{ site_display_name() }}
+        </h5>
+        <p class="small mb-3" style="color: var(--text-secondary);">{{ site_tagline() }}</p>
+        
+        {% if is_plugin_active and is_plugin_active('newsletter') %}
+          <div class="mt-3 p-3 rounded-3" style="background: var(--bg-tertiary); border: 1px solid var(--border-color);">
+            <h6 class="fw-bold mb-2 text-emerald">📬 Newsletter</h6>
+            <p class="small mb-2" style="color: var(--text-secondary);">Abonează-te pentru noutăți.</p>
+            <form id="footer-newsletter-form" onsubmit="submitFooterNewsletter(event)">
+              <div class="input-group input-group-sm mb-2">
+                <input type="email" id="footer-newsletter-email" class="form-control" placeholder="adresa@email.com" required>
+                <button type="submit" id="footer-newsletter-btn" class="btn btn-emerald fw-semibold px-3">OK</button>
+              </div>
+              <div id="footer-newsletter-status" class="small" style="font-size: 0.8rem;"></div>
+            </form>
+            <script>
+            async function submitFooterNewsletter(e) {
+              e.preventDefault();
+              const em = document.getElementById('footer-newsletter-email');
+              const st = document.getElementById('footer-newsletter-status');
+              const btn = document.getElementById('footer-newsletter-btn');
+              if (!em || !em.value) return;
+              btn.disabled = true;
+              st.innerHTML = '<span class="text-secondary">Se procesează...</span>';
+              const fd = new FormData();
+              fd.append('email', em.value);
+              try {
+                const r = await fetch('/newsletter/subscribe', {
+                  method: 'POST',
+                  body: fd,
+                  headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                });
+                const d = await r.json();
+                if (d.ok) {
+                  st.innerHTML = '<span class="text-success fw-semibold">✅ ' + (d.msg || 'Abonat cu succes!') + '</span>';
+                  em.value = '';
+                } else {
+                  st.innerHTML = '<span class="text-danger fw-semibold">❌ ' + (d.err || 'Eroare la abonare.') + '</span>';
+                }
+              } catch(err) {
+                st.innerHTML = '<span class="text-danger fw-semibold">❌ Eroare de rețea. Încearcă din nou.</span>';
+              } finally {
+                btn.disabled = false;
+              }
+            }
+            </script>
+            {% if plugin_area_footer_col1 %}{{ plugin_area_footer_col1 | safe }}{% endif %}
+          </div>
+        {% else %}
+          {% if plugin_area_footer_col1 %}{{ plugin_area_footer_col1 | safe }}{% endif %}
+        {% endif %}
+      </div>
+
+      <div class="col-lg-3 col-md-6">
+        <h5 class="mb-3">{{ t('footer.navigation') if t else 'Navigare' }}</h5>
+        <ul class="list-unstyled small d-flex flex-column gap-2">
+          <li><a href="/">🏠 {{ t('nav.home') if t else 'Acasă' }}</a></li>
+          {% if footer_nav_posts %}
+            {% for np in footer_nav_posts %}
+              <li><a href="{{ np.href or np.url }}" target="{{ np.target or '_self' }}">{{ np.fixed_label or np.label }}</a></li>
+            {% endfor %}
+          {% endif %}
+        </ul>
+        {% if plugin_area_footer_col2 %}{{ plugin_area_footer_col2 | safe }}{% endif %}
+      </div>
+      <div class="col-lg-3 col-md-6">
+        <h5 class="mb-3">{{ t('footer.management') if t else 'Cont & Admin' }}</h5>
+        <ul class="list-unstyled small d-flex flex-column gap-2">
+          {% if user %}<li><a href="/profile">👤 {{ t('footer.myAccount') if t else 'Contul Meu' }}</a></li>{% if has_role('admin', 'editor', 'author', 'seller', 'developer') %}<li><a href="/admin">⚡ {{ t('footer.adminPanel') if t else 'Panou Admin' }}</a></li>{% endif %}{% else %}<li><a href="/admin/login">🔑 {{ t('ui.login') if t else 'Autentificare' }}</a></li>{% endif %}
+        </ul>
+        {% if plugin_area_footer_col3 %}{{ plugin_area_footer_col3 | safe }}{% endif %}
+      </div>
+      <div class="col-lg-3 col-md-6">
+        <h5 class="mb-3">{{ t('footer.information') if t else 'Informații' }}</h5>
+        {% if plugin_area_footer_col4 %}{{ plugin_area_footer_col4 | safe }}{% endif %}
+      </div>
+    </div>
+    <div class="footer-bottom mt-4 pt-4 d-flex flex-wrap justify-content-between align-items-center">
+      <div>© {{ year }} {{ site_display_name() }}. {{ t('footer.craftedBy') if t else 'Creat cu ❤️ de' }} {{ theme_author }}.</div>
+      {% if plugin_area_footer_bottom %}<div>{{ plugin_area_footer_bottom | safe }}</div>{% endif %}
+    </div>
+  </div>
+</footer>

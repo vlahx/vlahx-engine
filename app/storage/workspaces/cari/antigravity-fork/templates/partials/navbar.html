@@ -1,0 +1,71 @@
+<header class="navbar navbar-expand-lg navbar-ag sticky-top">
+  <div class="container-fluid px-4 py-2">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+      {% if site_nav_icon_abs %}
+        <img src="{{ site_nav_icon_abs|e }}" width="34" height="34" alt="" style="object-fit:contain">
+      {% else %}
+        <span class="ag-logo-icon">🚀</span>
+      {% endif %}
+      <span class="ag-brand-text">{{ site_display_name() }}</span>
+    </a>
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto align-items-lg-center gap-2 mt-3 mt-lg-0">
+        {% if fixed_nav_posts %}
+          {% for nav_p in fixed_nav_posts %}
+            <li class="nav-item"><a class="nav-link py-1 px-3" href="{{ nav_p.href or nav_p.url }}">{{ nav_p.fixed_label or nav_p.label }}</a></li>
+          {% endfor %}
+        {% endif %}
+        
+        {% if plugin_area_navbar_search %}{{ plugin_area_navbar_search | safe }}{% endif %}
+        {% if plugin_area_navbar_links %}{{ plugin_area_navbar_links | safe }}{% endif %}
+        
+        <li class="nav-item">
+          <button id="themeToggle" class="ag-theme-btn" aria-label="Toggle Theme">🌙</button>
+        </li>
+
+        {% if available_locales and available_locales|length > 1 %}
+        <li class="nav-item lang-switcher">
+          <form method="POST" action="/lang" class="d-inline">
+            <input type="hidden" name="next" value="{{ current_path_with_query or request.url.path }}">
+            <select name="locale" onchange="this.form.submit()" class="form-select form-select-sm ag-lang-select">
+              {% for loc in available_locales %}
+                <option value="{{ loc.code }}" {% if loc.code == current_locale %}selected{% endif %}>{{ loc.name }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </li>
+        {% endif %}
+
+        {% if user %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 py-1 px-3" href="#" data-bs-toggle="dropdown">
+            {% if user.image_url %}
+              <img src="{{ user.image_url }}" alt="" class="rounded-circle" width="28" height="28">
+            {% else %}
+              <div class="ag-user-avatar">{{ (user.first_name or user.username or 'U')[0]|upper }}</div>
+            {% endif %}
+            <span class="fw-semibold small">{{ user.first_name or user.username }}</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-4 mt-1 ag-dropdown">
+            <li><a class="dropdown-item" href="/profile">👤 {{ t('ui.profile') if t else 'Profilul meu' }}</a></li>
+            {% if plugin_area_user_dropdown %}{{ plugin_area_user_dropdown | safe }}{% endif %}
+            {% if has_role('admin', 'editor', 'author', 'seller', 'developer') %}
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item fw-semibold text-cyan" href="/admin">⚡ {{ t('ui.admin') if t else 'Panou Admin' }}</a></li>
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item text-danger" href="/auth/logout">🚪 {{ t('ui.logout') if t else 'Deconectare' }}</a></li>
+          </ul>
+        </li>
+        {% else %}
+        <li class="nav-item">
+          <a class="btn btn-ag-primary btn-sm" href="/admin/login">🔑 {{ t('ui.login') if t else 'Autentificare' }}</a>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</header>

@@ -1,0 +1,30 @@
+<aside class="ag-sidebar d-flex flex-column gap-4">
+  {% if plugin_area_sidebar_top %}{{ plugin_area_sidebar_top | safe }}{% endif %}
+  
+  {% if plugin_area_sidebar_search %}
+    <div class="ag-sidebar-card p-3 rounded-4">
+      <h6 class="fw-bold mb-3 text-cyan">🔍 {{ t('search.title') if t else 'Căutare' }}</h6>
+      {{ plugin_area_sidebar_search | safe }}
+    </div>
+  {% endif %}
+
+  {% if categories %}
+  <div class="ag-sidebar-card p-4 rounded-4">
+    <h6 class="fw-bold mb-3 text-cyan">🏷️ {{ t('home.categories.title') if t else 'Categorii' }}</h6>
+    <div class="d-flex flex-wrap gap-2">
+      <a href="/" class="badge {% if not current_category %}badge-ag-cyan{% else %}badge-ag-outline{% endif %} rounded-pill px-3 py-2 text-decoration-none">
+        ✨ {{ t('home.categories.all') if t else 'Toate' }}
+      </a>
+      {% for cat in categories %}
+        <a href="/category/{{ cat.slug or cat.name }}" class="badge {% if current_category == cat.slug or current_category == cat.name %}badge-ag-cyan{% else %}badge-ag-outline{% endif %} rounded-pill px-3 py-2 text-decoration-none">
+          {{ cat.name }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if plugin_area_sidebar_widgets %}{{ plugin_area_sidebar_widgets | safe }}{% endif %}
+
+  {% if plugin_area_sidebar_bottom %}{{ plugin_area_sidebar_bottom | safe }}{% endif %}
+</aside>
