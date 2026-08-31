@@ -1311,39 +1311,28 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             if download_url.startswith("/"):
                 repo_catalog_url = get_repo_api_url()
                 parsed = urllib.parse.urlparse(repo_catalog_url)
-                origin = f"{parsed.scheme}://{parsed.netloc}"
-                download_url = f"{origin}{download_url}"
+                pub_origin = f"{parsed.scheme}://{parsed.netloc}"
+                
+                urls_to_try = [f"{pub_origin}{download_url}"]
+                if "vlahx.org" in parsed.netloc:
+                    urls_to_try.append(f"http://vlahx-repo:8080{download_url}")
 
-            req = urllib.request.Request(download_url, headers={"User-Agent": "VlahX-Core-2.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = resp.read()
+                data = None
+                last_err = None
+                for u in urls_to_try:
+                    try:
+                        req = urllib.request.Request(u, headers={"User-Agent": "VlahX-Core-2.0"})
+                        with urllib.request.urlopen(req, timeout=5) as resp:
+                            if resp.status == 200:
+                                read_bytes = resp.read()
+                                if read_bytes and len(read_bytes) > 100:
+                                    data = read_bytes
+                                    break
+                    except Exception as e_dl:
+                        last_err = e_dl
 
-            extracted_id, msg = extract_plugin_zip(data, overwrite=True)
-            set_plugin_enabled(extracted_id, True)
-            safe_msg = urllib.parse.quote(f"Plugin-ul `{extracted_id}` a fost instalat și activat cu succes!")
-            return RedirectResponse(url=f"/admin/repo?message={safe_msg}", status_code=303)
-        except Exception as e:
-            logger.exception("Plugin repo install failed")
-            safe_err = urllib.parse.quote(f"Eroare instalare {plugin_id}: {e}")
-            return RedirectResponse(url=f"/admin/repo?error={safe_err}", status_code=303)
-
-    @router.post("/admin/themes/repo/install", response_class=HTMLResponse)
-    @role_required("admin")
-    async def admin_themes_repo_install(request: Request, download_url: str = Form(...)):
-        from app.core.config import get_repo_api_url
-        import urllib.request
-        import urllib.parse
-
-        try:
-            if download_url.startswith("/"):
-                repo_catalog_url = get_repo_api_url()
-                parsed = urllib.parse.urlparse(repo_catalog_url)
-                origin = f"{parsed.scheme}://{parsed.netloc}"
-                download_url = f"{origin}{download_url}"
-
-            req = urllib.request.Request(download_url, headers={"User-Agent": "VlahX-Core-2.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = resp.read()
+                if not data:
+                    raise ValueError(f"Imposibil de descărcat pachetul din Repo Store ({last_err}). Verificați conexiunea.")
 
             slug, msg = _extract_theme_zip(data, overwrite=True)
             safe_msg = urllib.parse.quote(f"Tema `{slug}` a fost instalată cu succes!")
