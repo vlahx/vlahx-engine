@@ -92,6 +92,10 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404)
         return serve_blog_post(request, templates, db, slug)
 
+    @app.get("/.well-known/appspecific/com.chrome.devtools.json")
+    async def chrome_devtools_json():
+        return {}
+
     return app
 
 

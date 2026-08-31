@@ -996,10 +996,13 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             theme_dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(theme_src, theme_dest)
             static_dest.parent.mkdir(parents=True, exist_ok=True)
+            static_dest.mkdir(parents=True, exist_ok=True)
             if static_src.is_dir():
                 shutil.copytree(static_src, static_dest, dirs_exist_ok=True)
+            theme_css = static_dest / "theme.css"
+            if not theme_css.exists():
+                theme_css.write_text("/* Theme CSS */", encoding="utf-8")
 
-            # Auto-mirror any assets/, images/, static/, css/, js/, fonts/ inside theme_dest to static_dest
             for folder_name in ("static", "assets", "images", "css", "js", "fonts"):
                 src_folder = theme_dest / folder_name
                 if src_folder.is_dir():
