@@ -1,8 +1,0 @@
-{
-  "name": "Emerald refactor",
-  "author": "Serge VlahX",
-  "version": "1.0.5",
-  "min_engine_version": "2.0.0",
-  "description": "locale and toggle theme out of hambuerger",
-  "supports_color_scheme_toggle": true
-}
