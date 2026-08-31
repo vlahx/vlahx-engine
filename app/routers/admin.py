@@ -939,8 +939,17 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                         else:
                             continue
                     dest.parent.mkdir(parents=True, exist_ok=True)
-                    with zipf.open(n) as src, open(dest, "wb") as out:
-                        shutil.copyfileobj(src, out)
+                    with zipf.open(n) as src:
+                        content_bytes = src.read()
+                        if n.endswith(".html"):
+                            try:
+                                text = content_bytes.decode("utf-8")
+                                text = text.replace(chr(92) + chr(39), chr(39)).replace(chr(92) + chr(34), chr(34))
+                                content_bytes = text.encode("utf-8")
+                            except Exception:
+                                pass
+                        with open(dest, "wb") as out:
+                            out.write(content_bytes)
 
             theme_src = extract_root / "themes" / slug
             if not theme_src.is_dir():
