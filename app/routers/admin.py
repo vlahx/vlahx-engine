@@ -1343,8 +1343,8 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 if not data:
                     raise ValueError(f"Imposibil de descărcat pachetul din Repo Store ({last_err}). Verificați conexiunea.")
 
-            info = extract_plugin_zip(data, overwrite=True)
-            set_plugin_enabled(info["id"], True)
+            plugin_id, msg = extract_plugin_zip(data, overwrite=True)
+            set_plugin_enabled(plugin_id, True)
             safe_msg = urllib.parse.quote(f"Pluginul  a fost instalat și activat cu succes!")
             return RedirectResponse(url=f"/admin/repo?message={safe_msg}", status_code=303)
         except Exception as e:
