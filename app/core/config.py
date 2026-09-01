@@ -371,8 +371,8 @@ def get_nav_fixed_post_links(locale: str | None = None, location: str | None = N
     items: list[dict[str, str]] = []
     from sqlalchemy import select
 
-    from app.models.db_models import Post as PostModel
-    from app.models.db_models import PostTranslation as PostTranslationModel
+    from app.plugins.vlahx_blog.models import Post as PostModel
+    from app.plugins.vlahx_blog.models import PostTranslation as PostTranslationModel
     from app.utils.db import SessionLocal
 
     try:
@@ -529,7 +529,7 @@ def get_nav_fixed_post_link(locale: str | None = None) -> dict[str, str] | None:
     slug = links[0]["slug"]
     from sqlalchemy import select
 
-    from app.models.db_models import Post as PostModel
+    from app.plugins.vlahx_blog.models import Post as PostModel
     from app.utils.db import SessionLocal
 
     with SessionLocal() as db:

@@ -13,9 +13,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import APP_DIR, PROJECT_ROOT
-from app.models.db_models import Category as CategoryModel
-from app.models.db_models import Post as PostModel
-from app.models.db_models import PostTranslation as PostTranslationModel
+from app.plugins.vlahx_blog.models import Category as CategoryModel
+from app.plugins.vlahx_blog.models import Post as PostModel
+from app.plugins.vlahx_blog.models import PostTranslation as PostTranslationModel
 from app.models.db_models import User as UserModel
 
 logger = logging.getLogger(__name__)

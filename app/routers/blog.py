@@ -151,7 +151,7 @@ def build_blog_router(templates: Jinja2Templates) -> APIRouter:
         posts = list_posts(db, q=query_val, category=current_category, author=current_author, locale=locale)
         categories = list_categories(db)
         from app.core.posts_db import list_authors_with_posts, get_category_by_slug, slugify
-        from app.models.db_models import Category as CategoryModel
+        from app.plugins.vlahx_blog.models import Category as CategoryModel
         authors = list_authors_with_posts(db)
 
         category_title = None

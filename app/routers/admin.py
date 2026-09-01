@@ -14,7 +14,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
-from app.models.db_models import Post as PostModel, User, Category
+from app.models.db_models import User
+from app.plugins.vlahx_blog.models import Post as PostModel, Category
 
 from app.core.config import (
     APP_DIR,
@@ -103,7 +104,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
     async def admin_home(request: Request, db: Session = Depends(get_db)):
         user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
         if user and user.role == "author":
-            from app.models.db_models import Post
+            from app.plugins.vlahx_blog.models import Post
             from sqlalchemy import select
             stmt = select(Post).where(Post.author_id == user.id).order_by(Post.created_at.desc())
             posts = db.execute(stmt).scalars().all()
@@ -194,7 +195,8 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
     @router.post("/admin/users/{user_id}/delete")
     @role_required("admin")
     async def admin_user_delete(request: Request, user_id: int, db: Session = Depends(get_db)):
-        from app.models.db_models import User, Post
+        from app.models.db_models import User
+        from app.plugins.vlahx_blog.models import Post
         from sqlalchemy import select, func
 
         target_user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
@@ -397,7 +399,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
 
         if translations_to_save:
             from sqlalchemy import select
-            from app.models.db_models import Post as PostModel
+            from app.plugins.vlahx_blog.models import Post as PostModel
             from app.core.posts_db import save_post_translations
             row = db.execute(select(PostModel).where(PostModel.slug == post.slug)).scalars().first()
             if row:
@@ -487,7 +489,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         translations_json = _txt("translations_json")
 
         if cat_id_raw and cat_id_raw.isdigit():
-            from app.models.db_models import Category as CategoryModel
+            from app.plugins.vlahx_blog.models import Category as CategoryModel
             from app.core.posts_db import slugify, _resolve_parent_category
             cat_obj = db.get(CategoryModel, int(cat_id_raw))
             if cat_obj and name:

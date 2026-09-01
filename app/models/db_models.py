@@ -52,24 +52,6 @@ class User(Base):
     posts: Mapped[list["Post"]] = relationship(back_populates="author")
 
 
-class Category(Base):
-    __tablename__ = "categories"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(80), nullable=False)
-    slug: Mapped[str] = mapped_column(String(160), unique=True, nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True, default="")
-    translations_json: Mapped[str | None] = mapped_column(Text, nullable=True, default="{}")
-    parent_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
-
-    parent: Mapped[Optional["Category"]] = relationship(
-        back_populates="children",
-        remote_side=[id],
-        foreign_keys=[parent_id],
-    )
-    children: Mapped[list["Category"]] = relationship(back_populates="parent", cascade="all, delete-orphan")
-
-
 class AppSetting(Base):
     """
     Setări cheie-valoare pentru pluginuri / integrări (Telegram notificări, SMTP newsletter).
@@ -140,51 +122,6 @@ class PluginSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     plugin: Mapped["Plugin"] = relationship(back_populates="settings")
-
-
-class Post(Base):
-    __tablename__ = "posts"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    slug: Mapped[str] = mapped_column(String(160), unique=True, nullable=False)
-
-    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-
-    title: Mapped[str] = mapped_column(String(220), nullable=False)
-    excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
-    category: Mapped[str | None] = mapped_column(String(80), nullable=True)
-    content_html: Mapped[str] = mapped_column(Text, nullable=False)
-
-    hero_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)  # pentru og_image, fallback la hero
-    images_url_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list/dict
-    meta_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    draft: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-
-    author: Mapped["User"] = relationship(back_populates="posts")
-    translations: Mapped[list["PostTranslation"]] = relationship(back_populates="post", cascade="all, delete-orphan")
-
-
-
-class PostTranslation(Base):
-
-    __tablename__ = "post_translations"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    post_id: Mapped[int] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
-    locale_code: Mapped[str] = mapped_column(ForeignKey("translation_locales.code"), nullable=False)
-
-    title: Mapped[str] = mapped_column(String(220), nullable=False)
-    excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
-    content_html: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    meta_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    post: Mapped["Post"] = relationship(back_populates="translations")
 
 
 class Comment(Base):

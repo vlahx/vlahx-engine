@@ -7,7 +7,8 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import APP_DIR
-from app.models.db_models import User, Comment, MediaFile, Post
+from app.models.db_models import User, Comment, MediaFile
+from app.plugins.vlahx_blog.models import Post
 
 logger = logging.getLogger(__name__)
 

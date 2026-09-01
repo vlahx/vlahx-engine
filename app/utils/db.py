@@ -8,7 +8,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.models.db_models import Base
 from app.core.posts_fs import list_posts as list_posts_fs
-from app.models.db_models import User, Post
+from app.models.db_models import User
+try:
+    from app.plugins.vlahx_blog.models import Post
+except Exception:
+    Post = None
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -28,8 +32,10 @@ engine = create_engine(
 def _sqlite_pragma(dbapi_conn, _connection_record) -> None:
     cur = dbapi_conn.cursor()
     cur.execute("PRAGMA foreign_keys=ON")
-    cur.execute("PRAGMA journal_mode=DELETE")
+    cur.execute("PRAGMA journal_mode=WAL")
     cur.execute("PRAGMA synchronous=NORMAL")
+    blog_db_path = DB_DIR / "blog.db"
+    cur.execute(f"ATTACH DATABASE '{blog_db_path}' AS blog")
     cur.close()
 
 
