@@ -76,18 +76,36 @@ DEFAULT_SSO_APPS = [
 def get_sso_applications() -> list[dict[str, Any]]:
     s = read_settings()
     raw = s.get("SSO_APPLICATIONS")
-    if not raw:
-        return DEFAULT_SSO_APPS
-    if isinstance(raw, list):
-        return raw
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            return parsed
-    except Exception:
-        pass
-    return DEFAULT_SSO_APPS
+    apps = DEFAULT_SSO_APPS
+    if raw:
+        if isinstance(raw, list):
+            apps = raw
+        else:
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    apps = parsed
+            except Exception:
+                pass
 
+    res = []
+    for a in apps:
+        if not isinstance(a, dict):
+            continue
+        v = a.get("is_active")
+        if isinstance(v, bool):
+            active_bool = v
+        elif isinstance(v, str):
+            active_bool = v.lower() in ("1", "true", "on", "yes")
+        elif isinstance(v, (int, float)):
+            active_bool = bool(v)
+        else:
+            active_bool = True
+
+        a_copy = dict(a)
+        a_copy["is_active"] = active_bool
+        res.append(a_copy)
+    return res
 
 def save_sso_applications(apps: list[dict[str, Any]]) -> None:
     write_settings({"SSO_APPLICATIONS": apps})

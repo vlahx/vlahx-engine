@@ -380,7 +380,7 @@
               <div class="form-text small">{{ t('admin.settings.appLogoutUrlHelp', 'Endpoint that destroys session on that domain upon logout.') }}</div>
             </div>
             <div class="form-check form-switch mt-3">
-              <input class="form-check-input" type="checkbox" name="is_active" id="is_active_check" checked />
+              <input class="form-check-input" type="checkbox" name="is_active" id="is_active_check" value="true" checked />
               <label class="form-check-label fw-semibold" for="is_active_check">{{ t('admin.settings.appActiveLabel', 'Active Application') }}</label>
             </div>
           </div>
@@ -408,7 +408,7 @@
     document.getElementById('sso_app_name').value = name;
     document.getElementById('sso_app_base_url').value = baseUrl;
     document.getElementById('sso_app_logout_url').value = logoutUrl;
-    document.getElementById('is_active_check').checked = isActive;
+    document.getElementById('is_active_check').checked = (isActive === true || isActive === 'true' || isActive === 1 || isActive === '1');
     document.getElementById('addSsoAppModalLabel').textContent = '{{ t("admin.settings.editSsoModalTitle", "✏️ Edit SSO Application") }}';
     const modalEl = document.getElementById('addSsoAppModal');
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -425,7 +425,7 @@
   function moveNavRowDown(btn) {
     const row = btn.closest('.nav-row');
     if (row && row.nextElementSibling) {
-      row.parentNode.insertBefore(row.nextElementSibling, row);
+      row.parentNode.insertBefore(row, row.nextElementSibling);
     }
   }
 

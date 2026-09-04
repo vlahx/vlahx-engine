@@ -1426,20 +1426,22 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
     ):
         import uuid
         apps = get_sso_applications()
-        new_id = app_id.strip() if app_id else str(uuid.uuid4())[:8]
+        clean_app_id = app_id.strip() if app_id and app_id.strip() else None
         active_bool = is_active is not None and is_active.lower() in ("1", "true", "on", "yes")
         
         updated = False
-        for a in apps:
-            if a.get("id") == new_id:
-                a["name"] = name.strip()
-                a["base_url"] = base_url.strip().rstrip("/")
-                a["logout_url"] = logout_url.strip()
-                a["is_active"] = active_bool
-                updated = True
-                break
+        if clean_app_id:
+            for a in apps:
+                if a.get("id") == clean_app_id:
+                    a["name"] = name.strip()
+                    a["base_url"] = base_url.strip().rstrip("/")
+                    a["logout_url"] = logout_url.strip()
+                    a["is_active"] = active_bool
+                    updated = True
+                    break
         
         if not updated:
+            new_id = clean_app_id or str(uuid.uuid4())[:8]
             apps.append({
                 "id": new_id,
                 "name": name.strip(),
