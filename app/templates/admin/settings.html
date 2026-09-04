@@ -72,6 +72,11 @@
         {{ t('admin.settings.tabMedia') if t else '🖼️ Media & Image Processing' }}
       </button>
     </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-semibold rounded-2 px-3 py-2 text-body-secondary" id="tab-btn-sso" data-bs-toggle="pill" data-bs-target="#pane-sso" type="button" role="tab">
+        🔐 Aplicații SSO
+      </button>
+    </li>
   </ul>
 
   <!-- Main Settings Form (NO NESTED FORMS ALLOWED INSIDE THIS FORM) -->
@@ -149,88 +154,47 @@
                     <option value="blog" {% if homepage_mode == 'blog' %}selected{% endif %}>
                       {{ t('admin.settings.homepageBlogFeedOption') if t else '📚 Blog Articles Feed' }}
                     </option>
-                    {% for p in static_pages %}
-                    <option value="page:{{ p.slug|e }}" {% if homepage_mode == 'page:' ~ p.slug %}selected{% endif %}>
-                      {{ t('admin.settings.homepageStaticPageOption') if t else '📄 Static Page: ' }}{{ p.title|e }} ({{ p.slug|e }})
+                    {% endif %}
+
+                    {% for sp in static_pages %}
+                    <option value="page:{{ sp.slug }}" {% if homepage_mode == 'page:' ~ sp.slug %}selected{% endif %}>
+                      📄 Static Page: {{ sp.title }} (/{{ sp.slug }})
                     </option>
                     {% endfor %}
-                    {% if homepage_mode.startswith('page:') %}
-                    {% set cur_page_slug = homepage_mode[5:] %}
-                    {% if not static_pages|selectattr('slug', 'equalto', cur_page_slug)|list %}
-                    <option value="page:{{ cur_page_slug|e }}" selected>
-                      {{ t('admin.settings.homepageStaticPageOption') if t else '📄 Static Page: ' }}{{ cur_page_slug|e }} ({{ cur_page_slug|e }})
-                    </option>
-                    {% endif %}
-                    {% endif %}
-                    {% endif %}
-
-                    {% if is_plugin_active and is_plugin_active('minishop') %}
-                    <option value="shop" {% if homepage_mode == 'shop' %}selected{% endif %}>
-                      {{ t('admin.settings.homepageShopOption') if t else '🛍️ Online Store (Minishop)' }}
-                    </option>
-                    {% endif %}
-                  </select>
-                </div>
-              </div>
-
-              {% if not (is_plugin_active and (is_plugin_active('vlahx_blog') or is_plugin_active('minishop'))) %}
-              <div class="alert alert-info border-info border-opacity-25 bg-info bg-opacity-10 rounded-3 mt-3 mb-0 d-flex align-items-center gap-2">
-                <span class="fs-5">ℹ️</span>
-                <div class="small">
-                  {{ t('admin.settings.homepageNoPluginsNotice') if t else 'To set a dynamic article feed, static page, or online store as your homepage, please install and activate the Blog (vlahx_blog) or Shop (minishop) plugins from the Repo Store.' }}
-                  <a href="/admin/repo" class="fw-bold ms-1 text-decoration-underline">{{ t('admin.nav.repo') if t else 'Repo Store' }}</a>.
-                </div>
-              </div>
-              {% else %}
-              <div class="form-text mt-2 text-body-secondary">
-                {{ t('admin.settings.homepageStaticNote') if t else 'Note: If a static page is set as homepage, blog articles will remain accessible at /blog.' }}
-              </div>
-              {% endif %}
-            </div>
-          </div>
-
-          <!-- Article Path Format -->
-          <div class="card card-modern shadow-sm">
-            <div class="card-body p-4">
-              <h2 class="h5 mb-3 fw-bold">{{ t('admin.settings.articleUrls') if t else 'Article URL Structure' }}</h2>
-              <div class="row g-3 align-items-center">
-                <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">{{ t('admin.settings.publicArticlePath') if t else 'Public Article Path Format' }}</label>
-                  <select class="form-select" name="flat_post_urls">
-                    <option value="0" {% if not flat_post_urls %}selected{% endif %}>{{ t('admin.settings.pathClassic') if t else 'Classic (/post/slug)' }}</option>
-                    <option value="1" {% if flat_post_urls %}selected{% endif %}>{{ t('admin.settings.pathShort') if t else 'Short (/slug)' }}</option>
                   </select>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Custom Navbar & Footer Links -->
+          <!-- Static Nav Links Management -->
           <div class="card card-modern shadow-sm">
             <div class="card-body p-4">
               <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="h5 mb-0 fw-bold">{{ t('admin.settings.navManagerTitle') if t else 'Navbar & Footer Custom Links' }}</h2>
-                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="addNavRow()">
-                  {{ t('admin.settings.addLinkBtn') if t else '➕ Add Link' }}
+                <div>
+                  <h2 class="h5 mb-1 fw-bold">{{ t('admin.settings.staticNavTitle') if t else 'Navigation Links' }}</h2>
+                  <p class="text-body-secondary small mb-0">Add custom links to Header Navbar or Footer.</p>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold rounded-pill px-3" onclick="addNavRow()">
+                  ➕ Add Link
                 </button>
               </div>
-              <p class="text-body-secondary small mb-3">
-                {{ t('admin.settings.navManagerHelp') if t else 'Configure custom links for top navigation (Navbar) and footer. Drag and drop rows to reorder.' }}
-              </p>
 
               <div id="nav-rows-container" class="vstack gap-3">
-                {% for link in nav_items %}
-                <div class="p-3 border rounded-3 bg-body-tertiary nav-row position-relative" draggable="true">
-                  <div class="row g-2 align-items-center mb-2">
-                    <div class="col-auto"><span class="fs-5 text-body-secondary cursor-grab" title="Drag to reorder">⋮⋮</span></div>
+                {% for item in nav_items %}
+                <div class="p-3 border rounded-3 bg-body-tertiary nav-row" draggable="true">
+                  <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                      <span class="drag-handle text-body-secondary cursor-grab fs-5 px-1" title="Drag to reorder">⋮⋮</span>
+                    </div>
                     <div class="col-12 col-md-4">
-                      <input class="form-control" type="text" name="nav_url[]" value="{{ link.url|default('') }}" placeholder="URL (ex: /about sau https://...)" />
+                      <input class="form-control" type="text" name="nav_url[]" value="{{ item.url }}" placeholder="URL (ex: /about)" />
                     </div>
                     <div class="col-12 col-md-3">
                       <select class="form-select" name="nav_placement[]">
-                        <option value="navbar" {% if link.placement == 'navbar' %}selected{% endif %}>🧭 Navbar</option>
-                        <option value="footer" {% if link.placement == 'footer' %}selected{% endif %}>🦶 Footer</option>
-                        <option value="both" {% if link.placement == 'both' %}selected{% endif %}>🌐 Both</option>
+                        <option value="navbar" {% if item.placement == 'navbar' %}selected{% endif %}>🧭 Navbar</option>
+                        <option value="footer" {% if item.placement == 'footer' %}selected{% endif %}>🦶 Footer</option>
+                        <option value="both" {% if item.placement == 'both' %}selected{% endif %}>🌐 Both</option>
                       </select>
                     </div>
                     <div class="col-12 col-md-4 text-end">
@@ -242,13 +206,13 @@
                     </div>
                   </div>
 
-                  <div class="row g-2 align-items-center pt-2 border-top">
+                  <div class="row g-2 align-items-center pt-2 border-top mt-2">
                     <div class="col-12"><span class="small fw-bold text-body">🌐 Labels per language:</span></div>
                     {% for loc in active_locales %}
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-6">
                       <div class="input-group input-group-sm">
-                        <span class="input-group-text fw-bold">{{ loc.code|upper }}</span>
-                        <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" value="{{ link['label_' ~ loc.code]|default(link.label)|default('') }}" placeholder="Label {{ loc.code }}" />
+                        <span class="input-group-text bg-body">{{ loc.code|upper }}</span>
+                        <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" value="{{ item.labels.get(loc.code, '') }}" placeholder="Label for {{ loc.name }}" />
                       </div>
                     </div>
                     {% endfor %}
@@ -261,33 +225,115 @@
         </div>
       </div>
 
-      <!-- TAB 3: MEDIA & PROCESSING -->
+      <!-- TAB 3: MEDIA & IMAGE PROCESSING -->
       <div class="tab-pane fade" id="pane-media" role="tabpanel">
+        <div class="vstack gap-4">
+          <div class="card card-modern shadow-sm">
+            <div class="card-body p-4">
+              <h2 class="h5 mb-3 fw-bold">{{ t('admin.settings.brandingAssets') if t else 'Branding & Site Images' }}</h2>
+              <div class="row g-4">
+                <div class="col-12 col-md-6">
+                  {{ image_block(t('admin.settings.siteFavicon') if t else 'Site Favicon (.ico / .png)', 'SITE_FAVICON_PATH', site_favicon_path, 'favicon.ico') }}
+                </div>
+                <div class="col-12 col-md-6">
+                  {{ image_block(t('admin.settings.siteBrandImage') if t else 'Site Brand / Touch Icon', 'SITE_BRAND_IMAGE_PATH', site_brand_image_path, 'site-brand.svg') }}
+                </div>
+                <div class="col-12 col-md-6">
+                  {{ image_block(t('admin.settings.siteNavIcon') if t else 'Navbar Brand Icon', 'SITE_NAV_ICON_PATH', site_nav_icon_path, 'navbar-icon.svg') }}
+                </div>
+                <div class="col-12 col-md-6">
+                  {{ image_block(t('admin.settings.ogCardImage') if t else 'Default Open Graph / Social Share Card', 'OG_CARD_IMAGE_PATH', og_card_image_path, 'og-card.png') }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-modern shadow-sm">
+            <div class="card-body p-4">
+              <h2 class="h5 mb-3 fw-bold">{{ t('admin.settings.imageProcessingTitle') if t else 'Post & Media Image Resizing' }}</h2>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label small fw-semibold">Max Image Edge (Pixels)</label>
+                  <input class="form-control" type="number" name="post_image_max_edge" value="{{ post_image_max_edge }}" placeholder="1600" />
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="form-label small fw-semibold">Output Width</label>
+                  <input class="form-control" type="number" name="post_image_output_width" value="{{ post_image_output_width }}" placeholder="1200" />
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="form-label small fw-semibold">Output Height</label>
+                  <input class="form-control" type="number" name="post_image_output_height" value="{{ post_image_output_height }}" placeholder="630" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: SSO APPLICATIONS & IDENTITY -->
+      <div class="tab-pane fade" id="pane-sso" role="tabpanel">
         <div class="card card-modern shadow-sm">
           <div class="card-body p-4">
-            <h2 class="h5 mb-1 fw-bold">{{ t('admin.settings.postImageProcessing') if t else 'Image Processing & Optimization' }}</h2>
-            <p class="text-body-secondary small mb-4">{{ t('admin.settings.postImageProcessingSubtitle') if t else 'Configure automatic image resizing and social card thumbnail generation using Pillow.' }}</p>
-            
-            <div class="row g-3">
-              <div class="col-12 col-md-4">
-                <label class="form-label fw-semibold">{{ t('admin.settings.processingMode') if t else 'Image Processing Mode' }}</label>
-                <select class="form-select" name="post_image_crop_og">
-                  <option value="0" {% if not post_image_crop_og %}selected{% endif %}>{{ t('admin.settings.modeThumbnail') if t else 'Resize & Preserve Aspect Ratio' }}</option>
-                  <option value="1" {% if post_image_crop_og %}selected{% endif %}>{{ t('admin.settings.modeCrop') if t else 'Crop & Center (OpenGraph 1200x630)' }}</option>
-                </select>
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+              <div>
+                <h5 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                  <span>🔐</span> Aplicații SSO Conectate (Identity Registry)
+                </h5>
+                <p class="text-secondary small mb-0">
+                  Gestionați domeniile și aplicațiile auxiliare (`repo.vlahx.org`, `camionagiul.club`, `ion.ro`) conectate la autentificarea SSO și delogarea sincronizată (Single Sign-Out).
+                </p>
               </div>
-              <div class="col-12 col-md-4">
-                <label class="form-label fw-semibold">{{ t('admin.settings.maxEdge') if t else 'Max Edge Size (px)' }}</label>
-                <input class="form-control" type="number" name="post_image_max_edge" min="1" value="{{ post_image_max_edge }}" />
-              </div>
-              <div class="col-12 col-md-2">
-                <label class="form-label fw-semibold">{{ t('admin.settings.cropWidth') if t else 'Output Width (px)' }}</label>
-                <input class="form-control" type="number" name="post_image_output_width" min="1" value="{{ post_image_output_width }}" />
-              </div>
-              <div class="col-12 col-md-2">
-                <label class="form-label fw-semibold">{{ t('admin.settings.cropHeight') if t else 'Output Height (px)' }}</label>
-                <input class="form-control" type="number" name="post_image_output_height" min="1" value="{{ post_image_output_height }}" />
-              </div>
+              <button class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#addSsoAppModal">
+                ➕ Adaugă Aplicație SSO
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Nume Aplicație</th>
+                    <th>Domeniu Principal (Base URL)</th>
+                    <th>URL Logout (Single Sign-Out)</th>
+                    <th>Stare</th>
+                    <th class="text-end">Acțiuni</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for app in sso_applications %}
+                  <tr>
+                    <td>
+                      <span class="fw-bold text-body">{{ app.name }}</span>
+                      {% if app.id == "vlahx_repo" %}
+                      <span class="badge bg-purple text-white ms-1 small">Oficial Repo</span>
+                      {% endif %}
+                    </td>
+                    <td><code>{{ app.base_url }}</code></td>
+                    <td><code>{{ app.logout_url }}</code></td>
+                    <td>
+                      {% if app.is_active %}
+                      <span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1">🟢 Activ</span>
+                      {% else %}
+                      <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-2 py-1">🔴 Inactiv</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">
+                      <div class="d-inline-flex gap-1">
+                        {% if app.id != "vlahx_repo" %}
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" onclick="deleteSsoApp('{{ app.id }}')" title="Șterge">🗑️</button>
+                        {% else %}
+                        <span class="text-muted small italic">Sistem</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr>
+                    <td colspan="5" class="text-center text-muted py-3">Nu există aplicații SSO configurate.</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -295,204 +341,18 @@
 
     </div>
 
-    <!-- STICKY FOOTER SAVE BAR -->
-    <div class="sticky-bottom bg-body border-top shadow-lg p-3 rounded-3 mt-4 d-flex justify-content-between align-items-center">
-      <span class="fw-semibold text-body-secondary">{{ t('admin.settings.saveHint') if t else 'Modified settings? Remember to click Save All Settings!' }}</span>
-      <button class="btn btn-success btn-lg px-4 fw-bold shadow-sm" type="submit">💾 {{ t('admin.settings.saveSettings') if t else 'Save All Settings' }}</button>
+    <!-- Save Settings Global Floating/Fixed Bar -->
+    <div class="mt-4 d-flex justify-content-end">
+      <button class="btn btn-primary btn-lg rounded-pill px-5 fw-bold shadow" type="submit">
+        💾 {{ t('admin.actions.saveSettings') if t else 'Save All Settings' }}
+      </button>
     </div>
   </form>
 
-  <!-- BRANDING LOGOS & FAVICON CARDS (PLACED SEPARATELY OUTSIDE settingsForm TO PREVENT NESTED HTML FORMS) -->
-  <div class="card card-modern mt-4 shadow-sm">
-    <div class="card-body p-4">
-      <h2 class="h5 mb-1 fw-bold">{{ t('admin.settings.imagesPreviewUpload') if t else 'Site Logos, Favicon & Social Cards' }}</h2>
-      <p class="small text-body-secondary mb-4">{{ t('admin.settings.imagesHelp') if t else 'Upload brand logos, favicons, navbar icons, and OpenGraph social cards.' }}</p>
-
-      <div class="row g-4">
-        <div class="col-12 col-lg-6">
-          {{ image_block(t('admin.settings.faviconLabel') if t else 'Favicon', "SITE_FAVICON_PATH", site_favicon_path) }}
-        </div>
-        <div class="col-12 col-lg-6">
-          {{ image_block(t('admin.settings.brandLogoLabel') if t else 'Brand Logo', "SITE_BRAND_IMAGE_PATH", site_brand_image_path) }}
-        </div>
-        <div class="col-12 col-lg-6">
-          {{ image_block(t('admin.settings.navIconLabel') if t else 'Navbar & Hero Icon', "SITE_NAV_ICON_PATH", site_nav_icon_path, t('admin.settings.defaultSvg') if t else "Default SVG") }}
-        </div>
-        <div class="col-12 col-lg-6">
-          {{ image_block(t('admin.settings.ogCardLabel') if t else 'OpenGraph Social Card', "OG_CARD_IMAGE_PATH", og_card_image_path) }}
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- NAV LINK DRAG & DROP SCRIPTS -->
-<script>
-  function moveNavRowUp(btn) {
-    const row = btn.closest('.nav-row');
-    if (row && row.previousElementSibling) {
-      row.parentNode.insertBefore(row, row.previousElementSibling);
-    }
-  }
-
-  function moveNavRowDown(btn) {
-    const row = btn.closest('.nav-row');
-    if (row && row.nextElementSibling) {
-      row.parentNode.insertBefore(row.nextElementSibling, row);
-    }
-  }
-
-  function addNavRow() {
-    const container = document.getElementById('nav-rows-container');
-    if (!container) return;
-    
-    let localeInputsHtml = '';
-    {% for loc in active_locales %}
-    localeInputsHtml += `
-      <div class="col-12 col-md-4">
-        <div class="input-group input-group-sm">
-          <span class="input-group-text fw-bold">{{ loc.code|upper }}</span>
-          <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" placeholder="Label {{ loc.code }}" />
-        </div>
-      </div>
-    `;
-    {% endfor %}
-
-    const row = document.createElement('div');
-    row.className = 'p-3 border rounded-3 bg-body-tertiary nav-row position-relative';
-    row.setAttribute('draggable', 'true');
-    row.innerHTML = `
-      <div class="row g-2 align-items-center mb-2">
-        <div class="col-auto"><span class="fs-5 text-body-secondary cursor-grab" title="Drag to reorder">⋮⋮</span></div>
-        <div class="col-12 col-md-4">
-          <input class="form-control" type="text" name="nav_url[]" placeholder="URL (ex: /about)" />
-        </div>
-        <div class="col-12 col-md-3">
-          <select class="form-select" name="nav_placement[]">
-            <option value="navbar">🧭 Navbar</option>
-            <option value="footer">🦶 Footer</option>
-            <option value="both" selected>🌐 Both</option>
-          </select>
-        </div>
-        <div class="col-12 col-md-4 text-end">
-          <div class="btn-group btn-group-sm">
-            <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowUp(this)" title="Move Up">⬆️</button>
-            <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowDown(this)" title="Move Down">⬇️</button>
-            <button type="button" class="btn btn-outline-danger" onclick="this.closest('.nav-row').remove()" title="Delete">🗑️</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="row g-2 align-items-center pt-2 border-top">
-        <div class="col-12"><span class="small fw-bold text-body">🌐 Labels per language:</span></div>
-        ${localeInputsHtml}
-      </div>
-    `;
-    container.appendChild(row);
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    const container = document.getElementById('nav-rows-container');
-    if (!container) return;
-    let draggedItem = null;
-
-    container.addEventListener('dragstart', function(e) {
-      const target = e.target.closest('.nav-row');
-      if (target) {
-        draggedItem = target;
-        target.classList.add('opacity-50');
-        e.dataTransfer.effectAllowed = 'move';
-      }
-    });
-
-    container.addEventListener('dragend', function(e) {
-      if (draggedItem) {
-        draggedItem.classList.remove('opacity-50');
-        draggedItem = null;
-      }
-    });
-
-    container.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      const targetRow = e.target.closest('.nav-row');
-      if (targetRow && targetRow !== draggedItem) {
-        const rect = targetRow.getBoundingClientRect();
-        const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
-        container.insertBefore(draggedItem, next ? targetRow.nextSibling : targetRow);
-      }
-    });
-  });
-</script>
-
-  <!-- SSO Connected Applications Section -->
-  <div class="card card-modern mt-4 shadow-sm" id="sso-applications-section">
-    <div class="card-body p-4">
-      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-        <div>
-          <h5 class="fw-bold mb-1 d-flex align-items-center gap-2">
-            <span>🔐</span> Aplicații SSO Conectate (SSO Service Registry)
-          </h5>
-          <p class="text-secondary small mb-0">
-            Gestionați domeniile și aplicațiile auxiliare (, , ) conectate la autentificarea SSO și delogarea sincronizată (Single Sign-Out).
-          </p>
-        </div>
-        <button class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#addSsoAppModal">
-          ➕ Adaugă Aplicație SSO
-        </button>
-      </div>
-
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>Nume Aplicație</th>
-              <th>Domeniu Principal (Base URL)</th>
-              <th>URL Logout (Single Sign-Out)</th>
-              <th>Stare</th>
-              <th class="text-end">Acțiuni</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for app in sso_applications %}
-            <tr>
-              <td>
-                <span class="fw-bold text-body">{{ app.name }}</span>
-                {% if app.id == "vlahx_repo" %}
-                <span class="badge bg-purple text-white ms-1 small">Oficial Repo</span>
-                {% endif %}
-              </td>
-              <td><code>{{ app.base_url }}</code></td>
-              <td><code>{{ app.logout_url }}</code></td>
-              <td>
-                {% if app.is_active %}
-                <span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1">🟢 Activ</span>
-                {% else %}
-                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-2 py-1">🔴 Inactiv</span>
-                {% endif %}
-              </td>
-              <td class="text-end">
-                <div class="d-inline-flex gap-1">
-                  {% if app.id != "vlahx_repo" %}
-                  <form method="post" action="/admin/settings/sso-apps/delete" onsubmit="return confirm('Sigur doriți să ștergeți această aplicație SSO?');" class="d-inline">
-                    <input type="hidden" name="app_id" value="{{ app.id }}" />
-                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" title="Șterge">🗑️</button>
-                  </form>
-                  {% else %}
-                  <span class="text-muted small italic">Sistem</span>
-                  {% endif %}
-                </div>
-              </td>
-            </tr>
-            {% else %}
-            <tr>
-              <td colspan="5" class="text-center text-muted py-3">Nu există aplicații SSO configurate.</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+  <!-- Standalone Delete SSO App Form -->
+  <form id="deleteSsoAppForm" method="post" action="/admin/settings/sso-apps/delete">
+    <input type="hidden" name="app_id" id="delete_sso_app_id" value="" />
+  </form>
 
   <!-- Modal Adăugare Aplicație SSO -->
   <div class="modal fade" id="addSsoAppModal" tabindex="-1" aria-labelledby="addSsoAppModalLabel" aria-hidden="true">
@@ -531,4 +391,13 @@
     </div>
   </div>
 
+  <script>
+  function deleteSsoApp(appId) {
+    if (confirm('Sigur doriți să ștergeți această aplicație SSO?')) {
+      document.getElementById('delete_sso_app_id').value = appId;
+      document.getElementById('deleteSsoAppForm').submit();
+    }
+  }
+  </script>
+</section>
 {% endblock %}
