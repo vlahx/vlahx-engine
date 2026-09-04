@@ -97,6 +97,21 @@ def set_plugin_enabled(plugin_id: str, enabled: bool) -> None:
         if plugin:
             plugin.enabled = enabled
             db.commit()
+        else:
+            plugin_dir = PLUGINS_DIR / plugin_id
+            metadata = load_plugin_metadata(plugin_dir)
+            now = datetime.now(timezone.utc)
+            plugin = Plugin(
+                id=plugin_id,
+                name=metadata.name if metadata else plugin_id.replace("_", " ").title(),
+                version=metadata.version if metadata else "1.0.0",
+                description=metadata.description if metadata else "",
+                author=metadata.author if metadata else "",
+                enabled=enabled,
+                installed_at=now
+            )
+            db.add(plugin)
+            db.commit()
 
 
 def get_plugin_setting(plugin_id: str, key: str, default: str = "") -> str:
