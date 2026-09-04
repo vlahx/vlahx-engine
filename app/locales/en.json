@@ -442,7 +442,7 @@
   "admin.settings.inactiveBadge": "🔴 Inactive",
   "admin.settings.systemBadge": "System",
   "admin.settings.noSsoApps": "No SSO applications configured.",
-  "admin.settings.confirmDeleteSso": "Are you sure you want to delete this SSO application?",
+  "admin.settings.confirmDeleteSso": "Are you sure you want to permanently delete this SSO application from the database?",
   "admin.settings.addSsoModalTitle": "➕ Add New SSO Application",
   "admin.settings.appNameLabel": "Application / Project Name",
   "admin.settings.appNamePlaceholder": "e.g. Camionagiul Club",
@@ -457,5 +457,8 @@
   "admin.settings.saveSettings": "Save All Settings",
   "admin.actions.upload": "Upload",
   "admin.common.success": "Success",
-  "admin.common.error": "Error"
+  "admin.common.error": "Error",
+  "admin.settings.editSsoModalTitle": "✏️ Edit SSO Application",
+  "admin.settings.editAppBtn": "Edit",
+  "admin.settings.deleteAppBtn": "Delete from DB"
 }

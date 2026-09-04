@@ -283,7 +283,7 @@
                   {{ t('admin.settings.ssoRegistryDesc', 'Manage auxiliary domains and applications (repo.vlahx.org, camionagiul.club, ion.ro) connected to SSO authentication and Single Sign-Out.') }}
                 </p>
               </div>
-              <button class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#addSsoAppModal">
+              <button class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold shadow-sm" type="button" onclick="openAddSsoAppModal()" data-bs-toggle="modal" data-bs-target="#addSsoAppModal">
                 {{ t('admin.settings.addSsoAppBtn', '➕ Add SSO Application') }}
               </button>
             </div>
@@ -319,11 +319,12 @@
                     </td>
                     <td class="text-end">
                       <div class="d-inline-flex gap-1">
-                        {% if app.id != "vlahx_repo" %}
-                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" onclick="deleteSsoApp('{{ app.id }}')" title="{{ t('admin.settings.delete', 'Delete') }}">🗑️</button>
-                        {% else %}
-                        <span class="text-muted small italic">{{ t('admin.settings.systemBadge', 'System') }}</span>
-                        {% endif %}
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1" onclick="editSsoApp('{{ app.id }}', '{{ app.name|e }}', '{{ app.base_url|e }}', '{{ app.logout_url|e }}', {{ 'true' if app.is_active else 'false' }})" title="{{ t('admin.settings.editAppBtn', 'Edit') }}">
+                          ✏️ {{ t('admin.settings.editAppBtn', 'Edit') }}
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" onclick="deleteSsoApp('{{ app.id }}')" title="{{ t('admin.settings.deleteAppBtn', 'Delete from DB') }}">
+                          🗑️ {{ t('admin.settings.deleteAppBtn', 'Delete from DB') }}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -354,11 +355,12 @@
     <input type="hidden" name="app_id" id="delete_sso_app_id" value="" />
   </form>
 
-  <!-- Modal Adăugare Aplicație SSO -->
+  <!-- Modal Adăugare / Editare Aplicație SSO -->
   <div class="modal fade" id="addSsoAppModal" tabindex="-1" aria-labelledby="addSsoAppModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content rounded-4 border-0 shadow">
         <form method="post" action="/admin/settings/sso-apps/save">
+          <input type="hidden" name="app_id" id="sso_app_id" value="" />
           <div class="modal-header border-0 pb-0">
             <h5 class="modal-title fw-bold" id="addSsoAppModalLabel">{{ t('admin.settings.addSsoModalTitle', '➕ Add New SSO Application') }}</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -366,15 +368,15 @@
           <div class="modal-body p-4">
             <div class="mb-3">
               <label class="form-label fw-semibold">{{ t('admin.settings.appNameLabel', 'Application / Project Name') }}</label>
-              <input type="text" name="name" class="form-control rounded-3" placeholder="{{ t('admin.settings.appNamePlaceholder', 'e.g. Camionagiul Club') }}" required />
+              <input type="text" name="name" id="sso_app_name" class="form-control rounded-3" placeholder="{{ t('admin.settings.appNamePlaceholder', 'e.g. Camionagiul Club') }}" required />
             </div>
             <div class="mb-3">
               <label class="form-label fw-semibold">{{ t('admin.settings.appBaseUrlLabel', 'Main Domain (Base URL)') }}</label>
-              <input type="url" name="base_url" class="form-control rounded-3" placeholder="{{ t('admin.settings.appBaseUrlPlaceholder', 'https://camionagiul.club') }}" required />
+              <input type="url" name="base_url" id="sso_app_base_url" class="form-control rounded-3" placeholder="{{ t('admin.settings.appBaseUrlPlaceholder', 'https://camionagiul.club') }}" required />
             </div>
             <div class="mb-3">
               <label class="form-label fw-semibold">{{ t('admin.settings.appLogoutUrlLabel', 'Logout URL (Single Sign-Out Endpoint)') }}</label>
-              <input type="url" name="logout_url" class="form-control rounded-3" placeholder="{{ t('admin.settings.appLogoutUrlPlaceholder', 'https://camionagiul.club/sso/logout') }}" required />
+              <input type="url" name="logout_url" id="sso_app_logout_url" class="form-control rounded-3" placeholder="{{ t('admin.settings.appLogoutUrlPlaceholder', 'https://camionagiul.club/sso/logout') }}" required />
               <div class="form-text small">{{ t('admin.settings.appLogoutUrlHelp', 'Endpoint that destroys session on that domain upon logout.') }}</div>
             </div>
             <div class="form-check form-switch mt-3">
@@ -392,6 +394,27 @@
   </div>
 
   <script>
+  function openAddSsoAppModal() {
+    document.getElementById('sso_app_id').value = '';
+    document.getElementById('sso_app_name').value = '';
+    document.getElementById('sso_app_base_url').value = '';
+    document.getElementById('sso_app_logout_url').value = '';
+    document.getElementById('is_active_check').checked = true;
+    document.getElementById('addSsoAppModalLabel').textContent = '{{ t("admin.settings.addSsoModalTitle", "➕ Add New SSO Application") }}';
+  }
+
+  function editSsoApp(id, name, baseUrl, logoutUrl, isActive) {
+    document.getElementById('sso_app_id').value = id;
+    document.getElementById('sso_app_name').value = name;
+    document.getElementById('sso_app_base_url').value = baseUrl;
+    document.getElementById('sso_app_logout_url').value = logoutUrl;
+    document.getElementById('is_active_check').checked = isActive;
+    document.getElementById('addSsoAppModalLabel').textContent = '{{ t("admin.settings.editSsoModalTitle", "✏️ Edit SSO Application") }}';
+    const modalEl = document.getElementById('addSsoAppModal');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  }
+
   function moveNavRowUp(btn) {
     const row = btn.closest('.nav-row');
     if (row && row.previousElementSibling) {
@@ -456,7 +479,7 @@
   }
 
   function deleteSsoApp(appId) {
-    if (confirm('{{ t("admin.settings.confirmDeleteSso", "Are you sure you want to delete this SSO application?") }}')) {
+    if (confirm('{{ t("admin.settings.confirmDeleteSso", "Are you sure you want to permanently delete this SSO application from the database?") }}')) {
       document.getElementById('delete_sso_app_id').value = appId;
       document.getElementById('deleteSsoAppForm').submit();
     }

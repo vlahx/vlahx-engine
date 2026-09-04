@@ -442,7 +442,7 @@
   "admin.settings.inactiveBadge": "🔴 Inactiv",
   "admin.settings.systemBadge": "Sistem",
   "admin.settings.noSsoApps": "Nu există aplicații SSO configurate.",
-  "admin.settings.confirmDeleteSso": "Sigur doriți să ștergeți această aplicație SSO?",
+  "admin.settings.confirmDeleteSso": "Sigur doriți să ștergeți definitiv această aplicație SSO din baza de date?",
   "admin.settings.addSsoModalTitle": "➕ Adaugă Aplicație SSO Nouă",
   "admin.settings.appNameLabel": "Nume Aplicație / Proiect",
   "admin.settings.appNamePlaceholder": "ex: Camionagiul Club",
@@ -457,5 +457,8 @@
   "admin.settings.saveSettings": "Salvează Toate Setările",
   "admin.actions.upload": "Încarcă",
   "admin.common.success": "Succes",
-  "admin.common.error": "Eroare"
+  "admin.common.error": "Eroare",
+  "admin.settings.editSsoModalTitle": "✏️ Editează Aplicația SSO",
+  "admin.settings.editAppBtn": "Editare",
+  "admin.settings.deleteAppBtn": "Șterge din DB"
 }
