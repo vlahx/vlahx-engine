@@ -1411,9 +1411,6 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 status_code=500,
             )
 
-    return router
-
-
     @router.post("/admin/settings/sso-apps/save")
     @role_required("admin")
     async def admin_settings_sso_apps_save(
@@ -1459,3 +1456,5 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         apps = [a for a in get_sso_applications() if a.get("id") != app_id.strip()]
         save_sso_applications(apps)
         return RedirectResponse(url="/admin/settings?msg=Aplica%C8%9Bia+SSO+a+fost+eliminat%C8%9B%21", status_code=303)
+
+    return router
