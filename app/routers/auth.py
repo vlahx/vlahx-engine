@@ -31,7 +31,11 @@ import hashlib
 import base64
 import time
 
-def create_sso_token(user: User) -> str:
+def create_sso_token(user: User, target_url: str | None = None) -> str | None:
+    if target_url:
+        from app.core.site_settings import is_sso_app_active_for_url
+        if not is_sso_app_active_for_url(target_url):
+            return None
     payload = {
         "user_id": user.id,
         "first_name": user.first_name or "",
@@ -294,16 +298,23 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
 
         target = request.query_params.get("target", "").strip() or request.cookies.get("login_target", "").strip()
         if target == "repo" and user_has_role(user, "developer", "admin"):
-            token = create_sso_token(user)
             repo_base = get_repo_domain_url()
-            return RedirectResponse(url=f"{repo_base}/auth/sso?token={token}", status_code=303)
+            token = create_sso_token(user, target_url=repo_base)
+            if token:
+                return RedirectResponse(url=f"{repo_base}/auth/sso?token={token}", status_code=303)
 
         return RedirectResponse(url="/profile", status_code=303)
 
     @router.get("/auth/sso-redirect")
     async def sso_redirect(request: Request, referrer: str | None = None, db: Session = Depends(get_db)):
+        from app.core.site_settings import is_sso_app_active_for_url
         user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
         target_ref = (referrer or "").strip().rstrip("/")
+        repo_base = target_ref if target_ref else get_repo_domain_url()
+
+        if not is_sso_app_active_for_url(repo_base):
+            return RedirectResponse(url="/profile?error=sso_app_disabled", status_code=303)
+
         if not user:
             login_next = f"/auth/sso-redirect?referrer={target_ref}" if target_ref else "/auth/sso-redirect"
             import urllib.parse
@@ -311,8 +322,10 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         if not user_has_role(user, "developer", "admin", "administrator", "superadmin"):
             return RedirectResponse(url="/profile?error=developer_role_required", status_code=303)
 
-        token = create_sso_token(user)
-        repo_base = target_ref if target_ref else get_repo_domain_url()
+        token = create_sso_token(user, target_url=repo_base)
+        if not token:
+            return RedirectResponse(url="/profile?error=sso_app_disabled", status_code=303)
+
         return RedirectResponse(url=f"{repo_base}/auth/sso?token={token}", status_code=303)
 
     @router.get("/admin/pending", response_class=HTMLResponse)
@@ -401,9 +414,10 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
 
         target = request.cookies.get("login_target", "").strip()
         if target == "repo" and user_has_role(existing, "developer", "admin"):
-            token = create_sso_token(existing)
             repo_base = get_repo_domain_url()
-            return RedirectResponse(url=f"{repo_base}/auth/sso?token={token}", status_code=303)
+            token = create_sso_token(existing, target_url=repo_base)
+            if token:
+                return RedirectResponse(url=f"{repo_base}/auth/sso?token={token}", status_code=303)
 
         if next_url and next_url.startswith("/"):
             return RedirectResponse(url=next_url, status_code=303)

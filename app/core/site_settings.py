@@ -109,3 +109,16 @@ def get_sso_applications() -> list[dict[str, Any]]:
 
 def save_sso_applications(apps: list[dict[str, Any]]) -> None:
     write_settings({"SSO_APPLICATIONS": apps})
+
+def is_sso_app_active_for_url(url: str) -> bool:
+    """Verifică dacă un URL/domeniu aparține unei aplicații SSO active în baza de date."""
+    if not url:
+        return False
+    url_clean = str(url).strip().rstrip("/").lower()
+    apps = get_sso_applications()
+    for a in apps:
+        base = str(a.get("base_url", "")).strip().rstrip("/").lower()
+        if base and (url_clean == base or url_clean.startswith(base)):
+            return bool(a.get("is_active"))
+    return False
+
