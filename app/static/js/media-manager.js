@@ -94,26 +94,26 @@ function renderMediaGrid(files) {
   files.forEach(file => {
     const cardCol = document.createElement('div');
     cardCol.className = 'col-4 col-sm-3 col-md-3 col-lg-2';
-    
+
     const isSelected = selectedMediaFile && selectedMediaFile.id === file.id;
 
     cardCol.innerHTML = `
-      <div class="card h-100 p-1 text-center border cursor-pointer media-card ${isSelected ? 'border-primary border-2 bg-primary-subtle' : 'bg-white'}" 
-           style="cursor: pointer;" onclick="selectMediaFile(${file.id})">
-        ${file.file_url.match(/\.(zip|rar|7z|gz|pdf|doc|docx)$/i) ? `
-          <div class="rounded bg-primary-subtle text-primary d-flex flex-column align-items-center justify-content-center w-100" style="height: 85px;">
-            <span class="fs-2">${file.file_url.endsWith('.pdf') ? '📄' : '📦'}</span>
-            <span class="badge bg-primary mt-1" style="font-size: 9px;">${file.file_url.rsplit ? file.file_url.rsplit('.').pop() : 'DIGITAL'}</span>
-          </div>
-        ` : `
-          <img src="${file.file_url}" class="rounded object-fit-cover w-100" style="height: 85px;" alt="${file.alt_text}">
-        `}
-        <div class="small text-truncate mt-1 px-1 fw-semibold text-secondary" style="font-size: 11px;" title="${file.filename}">
-          ${file.filename}
-        </div>
+    <div class="card h-100 p-1 text-center border cursor-pointer media-card ${isSelected ? 'border-primary border-2 bg-primary-subtle' : 'bg-white'}"
+    style="cursor: pointer;" onclick="selectMediaFile(${file.id})">
+    ${file.file_url.match(/\.(zip|rar|7z|gz|pdf|doc|docx)$/i) ? `
+      <div class="rounded bg-primary-subtle text-primary d-flex flex-column align-items-center justify-content-center w-100" style="height: 85px;">
+      <span class="fs-2">${file.file_url.endsWith('.pdf') ? '📄' : '📦'}</span>
+      <span class="badge bg-primary mt-1" style="font-size: 9px;">${file.file_url.rsplit ? file.file_url.rsplit('.').pop() : 'DIGITAL'}</span>
       </div>
-    `;
-    grid.appendChild(cardCol);
+      ` : `
+      <img src="${file.file_url}" class="rounded object-fit-cover w-100" style="height: 85px;" alt="${file.alt_text}">
+      `}
+      <div class="small text-truncate mt-1 px-1 fw-semibold text-secondary" style="font-size: 11px;" title="${file.filename}">
+      ${file.filename}
+      </div>
+      </div>
+      `;
+      grid.appendChild(cardCol);
   });
 }
 
@@ -301,7 +301,7 @@ function selectFromMediaLibraryForShop(file) {
   if (!file || !file.file_url) return;
   const fullUrl = file.file_url.startsWith('http') ? file.file_url : (window.location.origin + (file.file_url.startsWith('/') ? '' : '/') + file.file_url);
   const featInput = document.getElementById('prod_featured_image');
-  if (featInput && !featInput.value) {
+  if (featInput) {
     featInput.value = fullUrl;
   }
   const container = document.getElementById('existingImagesContainer');
@@ -311,14 +311,14 @@ function selectFromMediaLibraryForShop(file) {
     const card = document.createElement('div');
     card.className = 'col-6 col-md-3';
     card.innerHTML = `
-      <div class="card h-100 p-2 text-center border shadow-sm bg-white">
-        <img src="${fullUrl}" class="rounded object-fit-cover mb-2" style="width: 100%; height: 90px;">
-        <input type="hidden" name="existing_images" value="${fullUrl}">
-        <span class="badge bg-primary small mb-1">🖼️ Din Bibliotecă</span>
-        <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2 small mt-1" onclick="this.closest('.col-6').remove()">
-          🗑️ Înlătură
-        </button>
-      </div>
+    <div class="card h-100 p-2 text-center border shadow-sm bg-white">
+    <img src="${fullUrl}" class="rounded object-fit-cover mb-2" style="width: 100%; height: 90px;">
+    <input type="hidden" name="existing_images" value="${fullUrl}">
+    <span class="badge bg-primary small mb-1">🖼️ Din Bibliotecă</span>
+    <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2 small mt-1" onclick="this.closest('.col-6').remove()">
+    🗑️ Înlătură
+    </button>
+    </div>
     `;
     list.appendChild(card);
   }
@@ -369,3 +369,6 @@ function selectHeroImageFromMedia(file) {
     previewDiv.innerHTML = '<img src="' + relUrl + '" alt="Hero image" style="max-width: 260px; max-height: 140px; object-fit: cover; border-radius: 8px;" class="shadow-sm border" />';
   }
 }
+
+
+window.selectFromMediaLibraryForShop = selectFromMediaLibraryForShop;

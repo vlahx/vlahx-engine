@@ -7,14 +7,14 @@
         <button type="button" class="btn-close" onclick="closeMediaManagerModal()" aria-label="Close"></button>
       </div>
       <div class="modal-body p-0">
-        <ul class="nav nav-tabs px-3 pt-3 bg-light border-bottom" id="mediaModalTabs" role="tablist">
+        <ul class="nav nav-tabs px-3 pt-3 bg-body-secondary border-bottom" id="mediaModalTabs" role="tablist">
           <li class="nav-item" role="presentation">
-            <button class="nav-link active fw-semibold" id="tab-media-library" data-bs-toggle="tab" data-bs-target="#pane-media-library" type="button" role="tab" onclick="switchMediaTab('library')">
+            <button class="nav-link active fw-semibold" id="tab-media-library" type="button" role="tab" onclick="switchMediaTab('library')">
               🖼️ {{ t('media.modal.libraryTab') }}
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link fw-semibold" id="tab-media-upload" data-bs-toggle="tab" data-bs-target="#pane-media-upload" type="button" role="tab" onclick="switchMediaTab('upload')">
+            <button class="nav-link fw-semibold" id="tab-media-upload" type="button" role="tab" onclick="switchMediaTab('upload')">
               📤 {{ t('media.modal.uploadTab') }}
             </button>
           </li>
@@ -25,15 +25,13 @@
             <div class="row g-3 mb-3 align-items-center">
               <div class="col-md-5">
                 <div class="input-group input-group-sm">
-                  <span class="input-group-text bg-white border-end-0">🔍</span>
+                  <span class="input-group-text bg-body-tertiary border-end-0">🔍</span>
                   <input type="text" id="mediaSearchInput" class="form-control border-start-0 ps-0" placeholder="{{ t('media.modal.searchPlaceholder') }}" oninput="filterMediaLibrary()">
                 </div>
               </div>
               <div class="col-md-4">
                 <select id="mediaCategorySelect" class="form-select form-select-sm" onchange="filterMediaLibrary()">
-                  <option value="">{{ t('media.modal.allCategories') }}</option>
-                  <option value="blog">📝 Blog</option>
-                  <option value="shop">🛒 Shop</option>
+                  <option value="">{{ t('media.modal.allCategories') if t else 'All Media' }}</option>
                   <option value="general">⚙️ General</option>
                 </select>
               </div>
@@ -48,14 +46,14 @@
               <div class="col-md-8 col-lg-9">
                 <div class="border rounded p-3 bg-body-tertiary" style="min-height: 380px; max-height: 480px; overflow-y: auto;">
                   <div class="row g-2" id="mediaGrid">
-                    <div class="col-12 text-center text-secondary py-5">{{ t('media.modal.emptyLibrary') }}</div>
+                    <div class="col-12 text-center text-body-secondary py-5">{{ t('media.modal.emptyLibrary') }}</div>
                   </div>
                 </div>
               </div>
 
               <div class="col-md-4 col-lg-3">
-                <div class="card h-100 border shadow-sm p-3 bg-white" id="mediaDetailPanel">
-                  <div class="text-center text-secondary py-5 small" id="mediaDetailPlaceholder">
+                <div class="card h-100 border shadow-sm p-3 bg-body-tertiary" id="mediaDetailPanel">
+                  <div class="text-center text-body-secondary py-5 small" id="mediaDetailPlaceholder">
                     {{ t('media.modal.selectHint') }}
                   </div>
                   <div id="mediaDetailContent" class="d-none">
@@ -64,11 +62,11 @@
                     </div>
                     <div class="small mb-2">
                       <div class="fw-bold text-truncate" id="detailFilename">—</div>
-                      <div class="text-secondary" id="detailMeta">—</div>
+                      <div class="text-body-secondary" id="detailMeta">—</div>
                     </div>
                     <div class="mb-3">
                       <label class="form-label small fw-semibold">{{ t('media.modal.fileUrl') }}</label>
-                      <input type="text" id="detailFileUrl" class="form-control form-control-sm bg-light" readonly onclick="this.select()">
+                      <input type="text" id="detailFileUrl" class="form-control form-control-sm bg-body-secondary" readonly onclick="this.select()">
                     </div>
 
                     <div class="border-top pt-2 mt-2">
@@ -98,15 +96,30 @@
             <div class="text-center p-5 border-2 border-dashed rounded bg-body-tertiary" id="mediaDropzone">
               <div class="fs-1 mb-2">📤</div>
               <h5 class="fw-bold mb-1">{{ t('media.modal.dragAndDrop') }}</h5>
-              <p class="text-secondary small mb-3">{{ t('media.modal.uploadHint') }}</p>
+              <p class="text-body-secondary small mb-3">{{ t('media.modal.uploadHint') }}</p>
 
-              <div class="col-md-6 mx-auto mb-3">
-                <label class="form-label small fw-semibold text-start w-100">{{ t('media.modal.destinationCategory') }}</label>
-                <select id="uploadCategorySelect" class="form-select form-select-sm">
-                  <option value="blog">📝 Blog</option>
-                  <option value="shop">🛒 Shop</option>
-                  <option value="general">⚙️ General</option>
-                </select>
+              <div class="col-md-7 mx-auto mb-3">
+                <label class="form-label small fw-semibold text-start w-100">{{ t('media.modal.destinationCategory', 'Destination Category') }}</label>
+                <div class="input-group input-group-sm mb-2">
+                  <select id="uploadCategorySelect" class="form-select">
+                    <option value="general">⚙️ {{ t('media.modal.categoryGeneral', 'General') }}</option>
+                  </select>
+                  <button type="button" class="btn btn-outline-primary fw-semibold" onclick="showInlineCategoryInput()">
+                    ➕ {{ t('media.modal.newCategoryBtn', 'New Category') }}
+                  </button>
+                </div>
+                
+                <div id="customCategoryInputWrapper" class="d-none">
+                  <div class="input-group input-group-sm">
+                    <input type="text" id="customUploadCategoryInput" class="form-control" placeholder="{{ t('media.modal.customCategoryPlaceholder', 'Enter new category name (e.g. banners)...') }}" />
+                    <button type="button" class="btn btn-primary fw-semibold" onclick="confirmInlineCategory()">
+                      ✅ {{ t('media.modal.addBtn', 'Add') }}
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="hideInlineCategoryInput()">
+                      ✖️
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <input type="file" id="mediaFileInput" multiple accept="*/*" class="d-none" onchange="uploadSelectedMediaFiles(this)">
@@ -117,7 +130,7 @@
           </div>
         </div>
       </div>
-      <div class="modal-footer bg-light py-2">
+      <div class="modal-footer bg-body-secondary py-2">
         <button type="button" class="btn btn-secondary btn-sm" onclick="closeMediaManagerModal()">{{ t('media.modal.cancel') }}</button>
         <button type="button" class="btn btn-primary btn-sm px-4 fw-semibold" id="insertMediaBtn" disabled onclick="confirmMediaSelection()">
           ✅ {{ t('media.modal.insertSelected') }}
@@ -137,13 +150,28 @@ function switchMediaTab(tabType) {
   if (tabType === 'upload') {
     if (libTabBtn) libTabBtn.classList.remove('active');
     if (uploadTabBtn) uploadTabBtn.classList.add('active');
-    if (libPane) libPane.classList.remove('show', 'active');
-    if (uploadPane) uploadPane.classList.add('show', 'active');
+    if (libPane) {
+      libPane.classList.remove('show', 'active');
+      libPane.style.display = 'none';
+    }
+    if (uploadPane) {
+      uploadPane.classList.add('show', 'active');
+      uploadPane.style.display = 'block';
+    }
   } else {
     if (uploadTabBtn) uploadTabBtn.classList.remove('active');
     if (libTabBtn) libTabBtn.classList.add('active');
-    if (uploadPane) uploadPane.classList.remove('show', 'active');
-    if (libPane) libPane.classList.add('show', 'active');
+    if (uploadPane) {
+      uploadPane.classList.remove('show', 'active');
+      uploadPane.style.display = 'none';
+    }
+    if (libPane) {
+      libPane.classList.add('show', 'active');
+      libPane.style.display = 'block';
+    }
+    if (typeof reloadMediaLibrary === 'function') {
+      reloadMediaLibrary();
+    }
   }
 
   try {

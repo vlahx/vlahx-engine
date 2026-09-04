@@ -1,0 +1,6 @@
+{
+  "id": "share",
+  "name": "Distribuie articolul",
+  "description": "Bloc partajare (WhatsApp, X, copiere link etc.) sub articol; JS servit din plugin.",
+  "version": "1.0.0"
+}

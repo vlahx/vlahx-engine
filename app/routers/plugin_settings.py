@@ -24,6 +24,12 @@ def build_plugin_settings_router(templates) -> APIRouter:
     @router.get("/admin/plugins/{plugin_id}/settings", response_class=HTMLResponse)
     @role_required("admin")
     async def plugin_settings_page(request: Request, plugin_id: str, db: Session = Depends(get_db)):
+        if plugin_id == "newsletter":
+            return RedirectResponse(url="/admin/newsletter#tab-settings", status_code=303)
+        elif plugin_id == "minishop":
+            return RedirectResponse(url="/admin/minishop#tab-settings", status_code=303)
+        elif plugin_id == "vlahx_blog":
+            return RedirectResponse(url="/admin/posts#tab-settings", status_code=303)
         plugins = get_installed_plugins()
         plugin = None
         for p in plugins:
@@ -91,7 +97,9 @@ def build_plugin_settings_router(templates) -> APIRouter:
                 loc_code = loc_file.stem
                 try:
                     with loc_file.open("r", encoding="utf-8") as handle:
-                        plugin_locales[loc_code] = json.load(handle)
+                        data = json.load(handle)
+                        if isinstance(data, dict):
+                            plugin_locales[loc_code] = data.get("translations", data) if isinstance(data.get("translations"), dict) else data
                 except Exception:
                     pass
 
@@ -223,8 +231,6 @@ def build_plugin_settings_router(templates) -> APIRouter:
 
         return HTMLResponse(f"<script>alert('{res_msg}'); window.location.href='/admin/plugins/newsletter/settings';</script>")
 
-    return router
-
     @router.post("/admin/plugins/{plugin_id}/translations")
     @role_required("admin")
     async def save_plugin_translations(request: Request, plugin_id: str, db: Session = Depends(get_db)):
@@ -255,6 +261,9 @@ def build_plugin_settings_router(templates) -> APIRouter:
                         db.add(entry)
 
         db.commit()
-        return HTMLResponse(
-            f"<script>alert('Traducerile plugin-ului au fost salvate cu succes!'); window.location.href='/admin/plugins/{plugin_id}/settings';</script>"
-        )
+        from app.core.translation_db import invalidate_translation_cache
+        invalidate_translation_cache()
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"/admin/plugins/{plugin_id}/settings?saved_i18n=1#tab-i18n", status_code=303)
+
+    return router

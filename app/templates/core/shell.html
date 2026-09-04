@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="index,follow,max-image-preview:large" />
     <meta name="google-site-verification" content="dkZK9eHsQfSSPDPVBYBTtfq1NjkgQ5NbTLIwLPRqKTs" />
-    <meta name="generator" content="FastAPI + Jinja2" />
+    <meta name="generator" content="VlahX Core 2.0 Engine" />
     {%- set _origin = request.url.scheme + '://' + request.url.netloc -%}
     {%- set _canon = seo_canonical|default(_origin + request.url.path) -%}
-    {%- set _tab_title = title|default('Blog') -%}
+    {%- set _tab_title = title|default(site_display_name() if site_display_name else 'VlahX Core') -%}
     {%- set _og_title = seo_title|default(_tab_title) -%}
     {%- set _desc_raw = (seo_description or meta_description or _og_title) -%}
     {%- set _type = seo_type|default('website') -%}
-    {%- set _site = seo_site_name|default('Blog', true) -%}
+    {%- set _site = seo_site_name|default(site_display_name() if site_display_name else 'VlahX Core', true) -%}
     <title>{{ _tab_title|e }}</title>
     <meta name="description" content="{{ _desc_raw|e }}" />
     <link rel="canonical" href="{{ _canon|e }}" />

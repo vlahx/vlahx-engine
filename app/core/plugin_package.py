@@ -33,12 +33,6 @@ def _zip_members(zipf: ZipFile) -> list[str]:
 
 
 def extract_plugin_zip(data: bytes, *, overwrite: bool) -> tuple[str, str]:
-    """
-    Instalează un plugin din zip în `plugins/<id>/`.
-    Acceptă:
-    - `plugins/<id>/plugin.py` (+ fișiere alăturate)
-    - sau un singur folder la rădăcină `<id>/plugin.py`
-    """
     with tempfile.TemporaryDirectory(prefix="plugin-upload-") as tmp:
         zpath = Path(tmp) / "plugin.zip"
         zpath.write_bytes(data)
@@ -48,138 +42,58 @@ def extract_plugin_zip(data: bytes, *, overwrite: bool) -> tuple[str, str]:
             mode: str = "plugins_root"
 
             for n in members:
-                if n.startswith("plugins/") and n.endswith("/plugin.py"):
-                    parts = n.split("/", 2)
-                    if len(parts) >= 2 and parts[1]:
-                        cand = safe_plugin_id(parts[1])
-                        if cand:
-                            plugin_id = cand
-                            mode = "plugins_root"
-                            break
+                parts = Path(n).parts
+                if len(parts) >= 3 and parts[0] == "plugins" and parts[2] == "plugin.py":
+                    cand = safe_plugin_id(parts[1])
+                    if cand:
+                        plugin_id = cand
+                        mode = "plugins_prefix"
+                        break
+                elif len(parts) >= 2 and parts[1] == "plugin.py":
+                    cand = safe_plugin_id(parts[0])
+                    if cand:
+                        plugin_id = cand
+                        mode = "single_folder"
+                        break
 
             if not plugin_id:
-                ignore = {"__macosx", ".ds_store"}
-                tops: set[str] = set()
-                for n in members:
-                    if "/" in n:
-                        top = n.split("/", 1)[0].strip()
-                        if top and top.lower() not in ignore:
-                            tops.add(top)
-                candidates: list[str] = []
-                for top in sorted(tops):
-                    cand = safe_plugin_id(top)
-                    if not cand:
-                        continue
-                    if any(m == f"{top}/plugin.py" for m in members):
-                        candidates.append(cand)
-                if len(candidates) == 1:
-                    plugin_id = candidates[0]
-                    mode = "id_root"
-                elif len(candidates) > 1:
-                    raise ValueError(
-                        "Zip invalid: mai multe plugin-uri la rădăcină: "
-                        + ", ".join(candidates[:8])
-                    )
-
-            if not plugin_id and any(m == "plugin.py" for m in members):
-                try:
-                    if "plugin.json" in members:
-                        with zipf.open("plugin.json") as jf:
-                            meta = json.loads(jf.read().decode("utf-8"))
-                            cand = safe_plugin_id(meta.get("id")) or safe_plugin_id(meta.get("slug"))
-                            if cand:
-                                plugin_id = cand
-                                mode = "root_flat"
-                except Exception:
-                    pass
-
-            if not plugin_id:
-                sample = ", ".join(members[:8]) if members else "(gol)"
-                raise ValueError(
-                    "Zip invalid: aștept `plugins/<id>/plugin.py` sau `<id>/plugin.py` sau `plugin.py`. "
-                    f"Exemple: {sample}"
-                )
-
-            extract_root = Path(tmp) / "extract"
-            extract_root.mkdir(parents=True, exist_ok=True)
-            for n in members:
-                if ".." in n or n.startswith("/") or n.startswith("\\"):
-                    raise ValueError("Zip invalid (path traversal).")
-                if mode == "plugins_root":
-                    if not n.startswith(f"plugins/{plugin_id}/"):
-                        continue
-                    dest = extract_root / n
-                elif mode == "root_flat":
-                    dest = extract_root / "plugins" / plugin_id / n
-                else:
-                    if not n.startswith(f"{plugin_id}/"):
-                        continue
-                    rel = n[len(plugin_id) + 1 :]
-                    dest = extract_root / "plugins" / plugin_id / rel
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                with zipf.open(n) as src, open(dest, "wb") as out:
-                    shutil.copyfileobj(src, out)
-
-            plugin_src = extract_root / "plugins" / plugin_id
-            if not (plugin_src / "plugin.py").is_file():
-                raise ValueError(
-                    f"Lipsește `plugins/{plugin_id}/plugin.py` după extract."
-                )
+                raise ValueError("Arhiva ZIP nu conține un plugin.py valid la nivel de plugin.")
 
             dest_dir = APP_DIR / "plugins" / plugin_id
-            if dest_dir.exists():
-                if not overwrite:
-                    raise ValueError(
-                        "Pluginul există deja. Bifează „Suprascrie” ca să reinstalezi."
-                    )
-                shutil.rmtree(dest_dir)
+            if dest_dir.exists() and not overwrite:
+                raise FileExistsError(f"Plugin-ul '{plugin_id}' există deja.")
+
+            tmp_extract = Path(tmp) / "out"
+            tmp_extract.mkdir(parents=True, exist_ok=True)
+            zipf.extractall(tmp_extract)
+
+            if mode == "plugins_prefix":
+                src_dir = tmp_extract / "plugins" / plugin_id
+            else:
+                src_dir = tmp_extract / plugin_id
+
+            if not src_dir.is_dir() or not (src_dir / "plugin.py").is_file():
+                raise ValueError("Eroare la extragerea structurii plugin-ului din ZIP.")
 
             dest_dir.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(plugin_src, dest_dir)
+            if dest_dir.exists() and overwrite:
+                shutil.rmtree(dest_dir)
 
-            # Auto-install plugin dependencies if requirements.txt exists in plugin zip
-            req_file = dest_dir / "requirements.txt"
-            if req_file.is_file():
-                try:
-                    import sys
-                    import subprocess
-                    import logging
-                    logger.info(f"Auto-installing requirements for plugin `{plugin_id}` from {req_file}...")
-                    subprocess.run(
-                        [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
-                        check=False
-                    )
-
-                    # Merge missing lines into root requirements.txt
-                    root_req = PROJECT_ROOT / "requirements.txt"
-                    if root_req.is_file():
-                        root_content = root_req.read_text(encoding="utf-8")
-                        root_lines = set(root_content.splitlines())
-                        plugin_lines = req_file.read_text(encoding="utf-8").splitlines()
-                        new_reqs = [
-                            line.strip() for line in plugin_lines
-                            if line.strip() and not line.strip().startswith("#") and line.strip() not in root_lines
-                        ]
-                        if new_reqs:
-                            with open(root_req, "a", encoding="utf-8") as f:
-                                f.write("\n" + "\n".join(new_reqs) + "\n")
-                except Exception as ex:
-                    logger.warning(f"Could not auto-install requirements for plugin `{plugin_id}`: {ex}")
-
-            # Înregistrăm plugin-ul în baza de date
-            from app.core.plugin_manager import load_plugin_metadata
-            metadata = load_plugin_metadata(dest_dir)
-            register_plugin_in_db(plugin_id, metadata)
-
-            return plugin_id, f"Plugin `{plugin_id}` instalat și înregistrat în baza de date."
+            shutil.copytree(src_dir, dest_dir)
+            register_plugin_in_db(plugin_id)
+            return plugin_id, f"Plugin-ul '{plugin_id}' a fost instalat cu succes."
 
 
-@dataclass(frozen=True)
+@dataclass
 class PluginInfo:
     id: str
     name: str
     description: str
     version: str | None
+    vlahx_version: str | None = "2.0.0"
+    is_compatible: bool = False
+    badge_class: str = "bg-warning text-dark"
+    badge_text: str = "⚠️ VlahX 2.0 (Migrare 3.0)"
 
 
 def list_installed_plugins() -> list[PluginInfo]:
@@ -197,6 +111,7 @@ def list_installed_plugins() -> list[PluginInfo]:
         name = pid
         description = ""
         version = None
+        vlahx_ver = "2.0.0"
         if manifest.is_file():
             try:
                 data = json.loads(manifest.read_text(encoding="utf-8"))
@@ -205,9 +120,24 @@ def list_installed_plugins() -> list[PluginInfo]:
                     description = str(data.get("description") or "").strip()
                     if data.get("version"):
                         version = str(data.get("version")).strip()
+                    vlahx_ver = str(data.get("vlahx_version") or data.get("min_core_version") or "2.0.0").strip()
             except (OSError, json.JSONDecodeError):
                 pass
+
+        is_comp = vlahx_ver.startswith("3.")
+        b_class = "bg-success text-white" if is_comp else "bg-warning text-dark"
+        b_text = f"🟢 VlahX {vlahx_ver} Compatibil" if is_comp else f"⚠️ VlahX {vlahx_ver} (Migrare 3.0)"
+
         out.append(
-            PluginInfo(id=pid, name=name, description=description, version=version)
+            PluginInfo(
+                id=pid,
+                name=name,
+                description=description,
+                version=version,
+                vlahx_version=vlahx_ver,
+                is_compatible=is_comp,
+                badge_class=b_class,
+                badge_text=b_text,
+            )
         )
     return out

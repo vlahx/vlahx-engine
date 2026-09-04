@@ -7,8 +7,11 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import APP_DIR
-from app.models.db_models import User, Comment, MediaFile
-from app.plugins.vlahx_blog.models import Post
+from app.models.db_models import User, MediaFile
+try:
+    from app.plugins.vlahx_blog.models import Post
+except ImportError:
+    Post = None
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +101,8 @@ def purge_user_data(db: Session, user_id: int) -> bool:
 
     # 1. Ștergere comentarii ale utilizatorului
     try:
-        db.query(Comment).filter(Comment.user_id == user_id).delete()
+        # Comments handled by comments plugin if loaded
+        pass
     except Exception as exc:
         logger.warning("Eroare ștergere comentarii pentru user %s: %s", user_id, exc)
 

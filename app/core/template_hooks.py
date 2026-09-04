@@ -112,6 +112,8 @@ def register_admin_nav(
     *,
     order: int = 100,
 ) -> None:
+    if any(r is renderer or r == renderer for _, r in _admin_nav):
+        return
     _admin_nav.append((order, renderer))
     _admin_nav.sort(key=lambda t: t[0])
 
@@ -329,3 +331,26 @@ def render_login_options(request: Request) -> str:
             logger.exception("login_options renderer failed")
     return "\n".join(parts)
 
+
+_sitemap_providers: list[tuple[int, Callable[[Request], list[dict]]]] = []
+
+def register_sitemap_provider(
+    provider: Callable[[Request], list[dict]],
+    *,
+    order: int = 100,
+) -> None:
+    if any(p is provider or p == provider for _, p in _sitemap_providers):
+        return
+    _sitemap_providers.append((order, provider))
+    _sitemap_providers.sort(key=lambda t: t[0])
+
+def collect_sitemap_entries(request: Request) -> list[dict]:
+    entries: list[dict] = []
+    for _, fn in _sitemap_providers:
+        try:
+            res = fn(request)
+            if res and isinstance(res, list):
+                entries.extend(res)
+        except Exception as e:
+            logger.exception("sitemap_provider failed: %s", e)
+    return entries

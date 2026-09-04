@@ -46,7 +46,7 @@ DEFAULT_TRANSLATION_CATALOG: dict[str, str] = {
     "profile.bio": "About me / Bio",
     "profile.bioPlaceholder": "Write a few words about yourself...",
     "profile.saveChanges": "💾 Save Changes",
-    "site.title": "Blog",
+    "site.title": "VlahX Engine",
     "site.tagline": "A simple blog",
     "home.categories.title": "Explore by category",
     "home.categories.all": "All",

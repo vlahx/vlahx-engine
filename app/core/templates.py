@@ -10,6 +10,7 @@ from app.core.config import (
     APP_DIR,
     PROJECT_ROOT,
     get_active_theme,
+    get_app_version,
     get_nav_fixed_post_link,
     get_nav_fixed_post_links,
     get_site_brand_image_path,
@@ -109,6 +110,7 @@ def build_templates(directory: str = "app/templates") -> Jinja2Templates:
         return path
 
     templates.env.globals["post_public_path"] = _jinja_post_public_path
+    templates.env.globals["app_version"] = get_app_version
     templates.env.globals["active_theme"] = get_active_theme
     templates.env.globals["active_theme_info"] = active_theme_info
     templates.env.globals["resolve_locale"] = resolve_locale
@@ -226,7 +228,7 @@ def render_template(
     ctx["translations"] = getattr(request.state, "translations", None) or get_translations(locale)
     ctx["lang"] = locale
     from app.core.i18n import get_plugin_translation
-    ctx["t"] = lambda key: get_translation(locale, key)
+    ctx["t"] = lambda key, default_val="": get_translation(locale, key, default_val)
     ctx["t_shop"] = lambda key, default_val="": get_plugin_translation("minishop", locale, key, default_val)
     ctx["t_plugin"] = lambda plugin_id, key, default_val="": get_plugin_translation(plugin_id, locale, key, default_val)
     ctx["plugin_t"] = lambda plugin_id, loc, key, default_val="": get_plugin_translation(plugin_id, loc or locale, key, default_val)
@@ -312,5 +314,6 @@ def render_template(
     ctx.setdefault("plugin_area_footer_bottom", render_footer_bottom(request))
     ctx.setdefault("editor_document_base", f"{root.rstrip('/')}/")
     response = templates.TemplateResponse(request, name, ctx, status_code=status_code)
-    set_locale_cookie(response, locale)
+    if "lang" in request.query_params or "locale" in request.query_params:
+        set_locale_cookie(response, locale)
     return response

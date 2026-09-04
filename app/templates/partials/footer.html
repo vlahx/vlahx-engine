@@ -19,11 +19,11 @@
         <p class="text-secondary small mb-3">{{ site_tagline() }}</p>
 
         {% if is_plugin_active and is_plugin_active('newsletter') %}
-        <h6 class="fw-bold mb-2 text-body" style="font-size: 0.9rem;">📧 {{ t('newsletter.title') if t else 'Abonare Newsletter' }}</h6>
+        <h6 class="fw-bold mb-2 text-body" style="font-size: 0.9rem;">{{ t_plugin('newsletter', 'title', '📧 Newsletter Subscription') }}</h6>
         <form id="footer-newsletter-form" onsubmit="submitFooterNewsletter(event)">
           <div class="input-group input-group-sm mb-2">
-            <input type="email" id="footer-newsletter-email" class="form-control" placeholder="adresa@email.com" required />
-            <button type="submit" id="footer-newsletter-btn" class="btn btn-primary fw-semibold px-3">OK</button>
+            <input type="email" id="footer-newsletter-email" class="form-control" placeholder="{{ t_plugin('newsletter', 'email_placeholder', 'your.email@example.com') }}" required />
+            <button type="submit" id="footer-newsletter-btn" class="btn btn-primary fw-semibold px-3">{{ t_plugin('newsletter', 'btn_ok', 'OK') }}</button>
           </div>
           <div id="footer-newsletter-status" class="small" style="font-size: 0.8rem;"></div>
         </form>
@@ -35,7 +35,7 @@
           const btn = document.getElementById('footer-newsletter-btn');
           if (!em || !em.value) return;
           btn.disabled = true;
-          st.innerHTML = '<span class="text-secondary">Se procesează...</span>';
+          st.innerHTML = '<span class="text-secondary">{{ t_plugin("newsletter", "processing", "Processing...") }}</span>';
           const fd = new FormData();
           fd.append('email', em.value);
           try {
@@ -46,13 +46,13 @@
             });
             const d = await r.json();
             if (d.ok) {
-              st.innerHTML = '<span class="text-success fw-semibold">✅ ' + (d.msg || 'Abonat cu succes!') + '</span>';
+              st.innerHTML = '<span class="text-success fw-semibold">✅ ' + (d.msg || '{{ t_plugin("newsletter", "success_fallback", "Subscribed successfully!") }}') + '</span>';
               em.value = '';
             } else {
-              st.innerHTML = '<span class="text-danger fw-semibold">❌ ' + (d.err || 'Eroare la abonare.') + '</span>';
+              st.innerHTML = '<span class="text-danger fw-semibold">❌ ' + (d.err || '{{ t_plugin("newsletter", "error_fallback", "Subscription error.") }}') + '</span>';
             }
           } catch(err) {
-            st.innerHTML = '<span class="text-danger fw-semibold">❌ Eroare de rețea. Încearcă din nou.</span>';
+            st.innerHTML = '<span class="text-danger fw-semibold">❌ {{ t_plugin("newsletter", "network_error", "Network error. Please try again.") }}</span>';
           } finally {
             btn.disabled = false;
           }

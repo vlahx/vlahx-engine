@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 APP_DIR = PROJECT_ROOT / "app"
 load_dotenv(PROJECT_ROOT / ".env", override=False)
 
-VLAH_CORE_VERSION = "2.0.0"
+VLAHX_CORE_VERSION = "3.0.0"
 
 
 def _get_required(name: str) -> str:
@@ -22,7 +22,7 @@ def _get_required(name: str) -> str:
 
 
 SESSION_SECRET = (
-    os.environ.get("SESSION_SECRET", "").strip() or "dev-insecure-session-secret"
+    os.environ.get("SESSION_SECRET", "").strip() or "vlahx-dev-shared-sso-secret-key-2026"
 )
 
 # URL public (https://domeniu.tld) — doar din .env (Caddy / domeniu). Folosit la OG, TinyMCE, canonice.
@@ -38,7 +38,7 @@ PUBLIC_SITE_URL = _normalize_public_site_url(os.environ.get("PUBLIC_SITE_URL", "
 
 # Nume afișat (navbar, meta og:site_name). Suprascrie din admin (site_settings.json) sau .env.
 SITE_DISPLAY_NAME = (
-    os.environ.get("SITE_DISPLAY_NAME", "").strip() or "Blog"
+    os.environ.get("SITE_DISPLAY_NAME", "").strip() or "VlahX Engine"
 )
 SITE_TAGLINE = (
     os.environ.get("SITE_TAGLINE", "").strip()
@@ -363,103 +363,79 @@ def invalidate_nav_fixed_post_links_cache() -> None:
 
 
 def get_nav_fixed_post_links(locale: str | None = None, location: str | None = None) -> list[dict[str, str]]:
-    global _NAV_FIXED_POST_LINKS_CACHE
-    cache_key = f"{locale or 'default'}_{location or 'all'}".strip().lower()
-    if cache_key in _NAV_FIXED_POST_LINKS_CACHE:
-        return _NAV_FIXED_POST_LINKS_CACHE[cache_key]
-
     items: list[dict[str, str]] = []
     from sqlalchemy import select
 
-    from app.plugins.vlahx_blog.models import Post as PostModel
-    from app.plugins.vlahx_blog.models import PostTranslation as PostTranslationModel
-    from app.utils.db import SessionLocal
-
+    # 1. Custom navigation items from settings
     try:
-        with SessionLocal() as db:
-            rows = db.execute(select(PostModel)).scalars().all()
-            post_lookup = {row.slug: row for row in rows if getattr(row, "slug", None)}
-            translated_titles = {}
-            if locale:
-                translated_rows = db.execute(
-                    select(PostTranslationModel).where(PostTranslationModel.locale_code == locale)
-                ).scalars().all()
-                for tr in translated_rows:
-                    translated_titles.setdefault(tr.post_id, tr.title.strip())
+        for item in _get_static_nav_items_raw():
+            item_loc = str(item.get("location") or "navbar").strip().lower()
+            if location and item_loc not in (location.lower(), "both"):
+                continue
+            url = str(item.get("url") or item.get("href") or "").strip()
+            slug = str(item.get("slug") or "").strip()
+            target = str(item.get("target") or "_self").strip()
+            labels_dict = item.get("labels") if isinstance(item.get("labels"), dict) else {}
+            loc_label = labels_dict.get(locale) if (locale and labels_dict.get(locale)) else None
+            fallback = str(loc_label or item.get("label") or item.get("fixed_label") or slug or url).strip()
 
-            for item in _get_static_nav_items_raw():
-                item_loc = str(item.get("location") or "navbar").strip().lower()
-                if location and item_loc not in (location.lower(), "both"):
-                    continue
-
-                url = str(item.get("url") or item.get("href") or "").strip()
-                slug = str(item.get("slug") or "").strip()
-                target = str(item.get("target") or "_self").strip()
-                target = target if target in ("_self", "_blank") else "_self"
-                labels_dict = item.get("labels") if isinstance(item.get("labels"), dict) else {}
-                loc_label = labels_dict.get(locale) if (locale and labels_dict.get(locale)) else None
-                fallback = str(loc_label or item.get("label") or item.get("fixed_label") or slug or url).strip()
-
-                if url and not slug:
-                    items.append({
-                        "slug": "",
-                        "label": fallback,
-                        "fixed_label": fallback,
-                        "url": url,
-                        "href": url,
-                        "target": target,
-                        "location": item_loc,
-                    })
-                    continue
-
-                if not slug:
-                    if url:
-                        items.append({
-                            "slug": "",
-                            "label": fallback,
-                            "fixed_label": fallback,
-                            "url": url,
-                            "href": url,
-                            "target": target,
-                            "location": item_loc,
-                        })
-                    continue
-
-                row = post_lookup.get(slug)
-                if row and not getattr(row, "draft", False):
-                    label = row.title.strip() or fallback
-                    if locale:
-                        title = translated_titles.get(row.id)
-                        if title and title.strip():
-                            label = title.strip()
-                        elif loc_label and loc_label.strip():
-                            label = loc_label.strip()
-                    item_href = url if url else post_public_path(slug)
-                    items.append({
-                        "slug": slug,
-                        "label": label,
-                        "fixed_label": label,
-                        "url": item_href,
-                        "href": item_href,
-                        "target": target,
-                        "location": item_loc,
-                    })
-                elif url:
-                    items.append({
-                        "slug": slug,
-                        "label": fallback,
-                        "fixed_label": fallback,
-                        "url": url,
-                        "href": url,
-                        "target": target,
-                        "location": item_loc,
-                    })
+            items.append({
+                "slug": slug,
+                "label": fallback,
+                "fixed_label": fallback,
+                "url": url or (f"/blog/{slug}" if slug else "#"),
+                "href": url or (f"/blog/{slug}" if slug else "#"),
+                "target": target,
+                "location": item_loc,
+            })
     except Exception:
         pass
 
-    _NAV_FIXED_POST_LINKS_CACHE[cache_key] = items
-    return items
+    # 2. Dynamic Static Pages from blog.db
+    try:
+        from app.plugins.vlahx_blog.db import BlogSessionLocal
+        from app.plugins.vlahx_blog.models import Post as PostModel, PostTranslation as PostTranslationModel
+        with BlogSessionLocal() as blog_db:
+            posts = blog_db.execute(select(PostModel).where(PostModel.draft == False)).scalars().all()
+            for p in posts:
+                placement = str(getattr(p, "nav_placement", "") or "none").strip().lower()
+                cat_name = str(getattr(p, "category", "") or "").strip().lower()
+                
+                # Check if static page placement is requested
+                if placement in ("none", "") and cat_name not in ("pages", "pagini", "static"):
+                    continue
 
+                effective_loc = placement if placement in ("navbar", "footer", "both") else "navbar"
+                if location and location.lower() != "all":
+                    loc_target = location.lower()
+                    if effective_loc != "both" and effective_loc != loc_target:
+                        continue
+
+                title = p.title
+                if locale:
+                    tr = blog_db.execute(
+                        select(PostTranslationModel).where(
+                            PostTranslationModel.post_id == p.id,
+                            PostTranslationModel.locale_code == locale
+                        )
+                    ).scalars().first()
+                    if tr and tr.title:
+                        title = tr.title
+
+                url = f"/blog/{p.slug}"
+                items.append({
+                    "slug": p.slug,
+                    "label": title,
+                    "fixed_label": title,
+                    "url": url,
+                    "href": url,
+                    "target": "_self",
+                    "location": effective_loc,
+                })
+    except Exception:
+        pass
+
+    return items
 
 def get_flat_post_urls() -> bool:
     """True → articole la /slug; False → /blog/slug."""
@@ -507,8 +483,24 @@ def is_static_page_slug(slug: str) -> bool:
         return False
     if s in ("home", "about", "despre", "contact", "privacy", "terms", "termeni", "politica"):
         return True
-    return any(str(item.get("slug") or "").strip().lower() == s for item in _get_static_nav_items_raw())
+    if any(str(item.get("slug") or "").strip().lower() == s for item in _get_static_nav_items_raw()):
+        return True
 
+    try:
+        from app.plugins.vlahx_blog.db import BlogSessionLocal
+        from app.plugins.vlahx_blog.models import Post as PostModel
+        from sqlalchemy import select
+        with BlogSessionLocal() as blog_db:
+            p = blog_db.execute(select(PostModel).where(PostModel.slug == s, PostModel.draft == False)).scalars().first()
+            if p:
+                placement = str(getattr(p, "nav_placement", "") or "none").strip().lower()
+                cat_name = str(getattr(p, "category", "") or "").strip().lower()
+                if placement in ("navbar", "footer", "both") or cat_name in ("pages", "pagini", "static"):
+                    return True
+    except Exception:
+        pass
+
+    return False
 
 def post_public_path(slug: str) -> str:
     s = (slug or "").strip().strip("/")
@@ -529,7 +521,10 @@ def get_nav_fixed_post_link(locale: str | None = None) -> dict[str, str] | None:
     slug = links[0]["slug"]
     from sqlalchemy import select
 
-    from app.plugins.vlahx_blog.models import Post as PostModel
+    try:
+        from app.plugins.vlahx_blog.models import Post as PostModel
+    except ImportError:
+        return None
     from app.utils.db import SessionLocal
 
     with SessionLocal() as db:
@@ -658,3 +653,12 @@ def get_repo_api_url() -> str:
         pass
 
     return "http://vlahx-repo:8080/api/v1/catalog.json"
+
+
+def get_app_version() -> str:
+    """Returnează versiunea curentă a VlahX Core din DB (app_settings) cu fallback la VLAHX_CORE_VERSION."""
+    d = {**_runtime(), **_db_runtime()}
+    raw = d.get("app_version") or d.get("APP_VERSION")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return VLAHX_CORE_VERSION

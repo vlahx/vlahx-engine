@@ -3,8 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% if title %}{{ title }} — {% endif %}⚡ Admin Panel</title>
-  
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem("vlahx_admin_theme") || "dark";
+      document.documentElement.setAttribute("data-bs-theme", savedTheme);
+      const isCollapsed = localStorage.getItem("vlahx_admin_sidebar_collapsed") === "true";
+      if (isCollapsed) {
+        document.documentElement.classList.add("sidebar-collapsed");
+      }
+    })();
+  </script>
+  <title>{% if title %}{{ title }} — {% endif %}⚡ VlahX Admin Engine</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -12,124 +22,326 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
   <link rel="stylesheet" href="/static/site.css" />
+
   <style>
+    :root {
+      --sidebar-width: 260px;
+      --sidebar-collapsed-width: 72px;
+      --header-height: 60px;
+    }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background-color: #f8f9fa;
-      color: #212529;
+      background-color: var(--bs-body-bg);
+      color: var(--bs-body-color);
+      min-height: 100vh;
     }
-    .admin-navbar {
-      background-color: #ffffff;
-      border-bottom: 1px solid #e9ecef;
+    
+    /* Fixed Top Header */
+    .admin-header {
+      height: var(--header-height);
+      background-color: var(--bs-body-bg);
+      border-bottom: 1px solid var(--bs-border-color);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1030;
     }
-    .card-modern {
-      border: 1px solid #e9ecef;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+    /* Admin Wrapper */
+    .admin-wrapper {
+      display: flex;
+      padding-top: var(--header-height);
+      min-height: 100vh;
+    }
+
+    /* Fixed Independent Sidebar */
+    .admin-sidebar {
+      position: fixed;
+      top: var(--header-height);
+      left: 0;
+      bottom: 0;
+      width: var(--sidebar-width);
+      background-color: var(--bs-body-bg);
+      border-right: 1px solid var(--bs-border-color);
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 1020;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    /* Custom Slim Scrollbar for Sidebar */
+    .admin-sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .admin-sidebar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .admin-sidebar::-webkit-scrollbar-thumb {
+      background: var(--bs-border-color);
+      border-radius: 4px;
+    }
+    .admin-sidebar::-webkit-scrollbar-thumb:hover {
+      background: var(--bs-secondary-color);
+    }
+
+    html.sidebar-collapsed .admin-sidebar {
+      width: var(--sidebar-collapsed-width);
+    }
+
+    .sidebar-menu {
+      padding: 0.75rem;
+      flex-grow: 1;
+    }
+
+    .sidebar-category {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--bs-secondary-color);
+      margin: 1.2rem 0.5rem 0.4rem 0.5rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    html.sidebar-collapsed .sidebar-category {
+      display: none;
+    }
+
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0.85rem;
+      color: var(--bs-body-color);
+      text-decoration: none;
+      font-weight: 500;
+      border-radius: 8px;
+      margin-bottom: 0.2rem;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .sidebar-link:hover {
+      background-color: var(--bs-tertiary-bg);
+      color: var(--bs-primary);
+    }
+
+    .sidebar-link.active {
+      background-color: var(--bs-primary);
+      color: #ffffff !important;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25);
+    }
+
+    .sidebar-link .icon {
+      font-size: 1.15rem;
+      width: 1.5rem;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    html.sidebar-collapsed .sidebar-link span.text {
+      display: none;
+    }
+
+    html.sidebar-collapsed .sidebar-link {
+      justify-content: center;
+      padding: 0.6rem 0;
+    }
+
+    /* Main Content Area Adjustments */
+    .admin-main {
+      flex-grow: 1;
+      margin-left: var(--sidebar-width);
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background-color: var(--bs-tertiary-bg);
+      min-height: calc(100vh - var(--header-height));
+    }
+
+    html.sidebar-collapsed .admin-main {
+      margin-left: var(--sidebar-collapsed-width);
+    }
+
+    .admin-content {
+      padding: 1.5rem;
+      flex-grow: 1;
+    }
+
+    /* Footer */
+    .admin-footer {
+      background-color: var(--bs-body-bg);
+      border-top: 1px solid var(--bs-border-color);
+      padding: 0.85rem 1.5rem;
+      font-size: 0.825rem;
+      color: var(--bs-secondary-color);
+    }
+
+    /* Responsive Mobile Sidebar Offcanvas */
+    @media (max-width: 991.98px) {
+      .admin-sidebar {
+        position: fixed;
+        top: var(--header-height);
+        bottom: 0;
+        left: -100%;
+        width: var(--sidebar-width) !important;
+        box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+      }
+
+      html.sidebar-mobile-open .admin-sidebar {
+        left: 0;
+      }
+
+      .admin-main {
+        margin-left: 0 !important;
+      }
     }
   </style>
 </head>
-<body class="bg-body-secondary text-body min-vh-100 d-flex flex-column">
+<body class="d-flex flex-column">
 
-  <!-- Fixed Isolated Admin Header -->
-  <header class="navbar navbar-expand-lg admin-navbar sticky-top py-2 px-3 shadow-sm">
-    <div class="container-fluid">
-      <a class="navbar-brand fw-bold d-flex align-items-center gap-2 text-primary" href="/admin">
-        <span class="badge bg-primary text-white p-2 rounded-3 fs-6">⚡</span>
-        <span class="text-body fw-bold">Admin Panel</span>
-      </a>
-      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbarNav">
-        <span class="navbar-toggler-icon"></span>
+  <!-- Top Header Navigation -->
+  <header class="navbar admin-header sticky-top px-3 d-flex align-items-center justify-content-between shadow-sm">
+    <div class="d-flex align-items-center gap-3">
+      <!-- Toggle Button -->
+      <button type="button" class="btn btn-sm btn-outline-secondary border-0 p-2" id="sidebarToggleBtn" title="Toggle Sidebar">
+        <span class="fs-5">☰</span>
       </button>
-      <div class="collapse navbar-collapse" id="adminNavbarNav">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0 gap-1">
-          <li class="nav-item">
-            <a class="nav-link fw-semibold px-3 rounded-2" href="/admin">📊 {{ t('admin.dashboard.title') if t else 'Dashboard' }}</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link fw-semibold px-3 rounded-2" href="/admin/users">👥 {{ t('admin.users.title') if t else 'Users' }}</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link fw-semibold px-3 rounded-2" href="/admin/categories">📁 {{ t('admin.categories.title') if t else 'Categories' }}</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link fw-semibold px-3 rounded-2" href="/admin/translations">🌐 {{ t('admin.translations.title') if t else 'Translations' }}</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link fw-semibold px-3 rounded-2" href="/admin/themes">🎨 {{ t('admin.themes.title') if t else 'Themes' }}</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link fw-semibold px-3 rounded-2" href="/admin/plugins">🔌 {{ t('admin.plugins.title') if t else 'Plugins' }}</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link fw-semibold px-3 rounded-2" style="color: #6f42c1;" href="/admin/repo">🏪 Repository</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link fw-semibold px-3 rounded-2" href="/admin/settings">⚙️ {{ t('admin.settings.title') if t else 'Settings' }}</a>
-          </li>
-        </ul>
-        <div class="d-flex align-items-center gap-2">
-          <a class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold" href="/" target="_blank">
-            🏠 {{ t('admin.common.viewSite') if t else 'View Site ↗' }}
-          </a>
-          <a class="btn btn-sm btn-outline-danger rounded-pill px-3" href="/auth/logout">
-            🚪 Logout
-          </a>
-        </div>
-      </div>
+
+      <!-- Brand Logo -->
+      <a class="navbar-brand fw-bold d-flex align-items-center gap-2 text-primary m-0" href="/admin">
+        <span class="badge bg-primary text-white p-2 rounded-3 fs-6">⚡</span>
+        <span class="text-body fw-bold fs-5">VlahX Admin</span>
+      </a>
+
+      
+    </div>
+
+    <!-- Header Right Controls -->
+    <div class="d-flex align-items-center gap-2">
+      <!-- Media Library Shortcut -->
+      <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3 d-flex align-items-center gap-1" onclick="openMediaManager({ category: 'general' })" title="Media Library">
+        <span>🖼️</span>
+        <span class="d-none d-sm-inline">{{ t('admin.nav.mediaLibrary') if t else 'Media Library' }}</span>
+      </button>
+
+      <!-- Theme Switcher -->
+      <button type="button" id="adminThemeToggleBtn" class="btn btn-sm btn-outline-warning rounded-pill px-3 fw-semibold d-flex align-items-center gap-1" onclick="toggleAdminTheme()" title="Toggle Light / Dark Mode">
+        <span id="adminThemeIcon">🌙</span>
+        <span id="adminThemeText" class="d-none d-md-inline">Dark Mode</span>
+      </button>
+
+      <!-- View Public Site -->
+      <a class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold d-none d-sm-inline-flex" href="/" target="_blank" title="View Site">
+        🏠 {{ t('admin.common.viewSite') if t else 'View Site ↗' }}
+      </a>
+
+      <!-- Logout Button -->
+      <a class="btn btn-sm btn-outline-danger rounded-pill px-3" href="/auth/logout" title="Logout">
+        🚪 <span class="d-none d-md-inline">Logout</span>
+      </a>
     </div>
   </header>
 
-  <!-- Sub-Navbar Plugin Action Bar / Buttons Area -->
-  <div class="bg-body-tertiary border-bottom py-2 px-4 shadow-sm">
-    <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-2">
-      <div class="d-flex flex-wrap align-items-center gap-2">
-        {% if plugin_area_admin_top_bar %}
-        {{ plugin_area_admin_top_bar|safe }}
-        {% endif %}
-      </div>
-      <div class="ms-auto d-flex align-items-center gap-2">
-        <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3 d-flex align-items-center gap-1" onclick="openMediaManager({ category: 'blog' })">
-          <span>🖼️</span>
-          <span>Bibliotecă Media</span>
-        </button>
-        <a class="btn btn-sm btn-success fw-bold px-3 shadow-sm d-flex align-items-center gap-1" href="/admin/new">
-          <span>➕</span>
-          <span>{{ t('admin.nav.newPost') if t else 'Articol Nou' }}</span>
+  <!-- Admin Main Layout Wrapper -->
+  <div class="admin-wrapper">
+    <!-- AdminLTE Style Sidebar -->
+    <aside class="admin-sidebar shadow-sm">
+      <nav class="sidebar-menu">
+
+        <!-- CORE PLATFORM -->
+        <div class="sidebar-category">Core Platform</div>
+
+        <a href="/admin" class="sidebar-link {% if current_path == '/admin' or current_path == '/admin/' %}active{% endif %}">
+          <span class="icon">📊</span>
+          <span class="text">{{ t('admin.nav.dashboard') if t else 'Dashboard' }}</span>
         </a>
-      </div>
+
+        <a href="/admin/users" class="sidebar-link {% if '/admin/users' in current_path %}active{% endif %}">
+          <span class="icon">👥</span>
+          <span class="text">{{ t('admin.nav.users') if t else 'Users & Roles' }}</span>
+        </a>
+
+        <a href="/admin/translations" class="sidebar-link {% if '/admin/translations' in current_path %}active{% endif %}">
+          <span class="icon">🌐</span>
+          <span class="text">{{ t('admin.nav.translations') if t else 'Translations' }}</span>
+        </a>
+
+        <a href="/admin/settings" class="sidebar-link {% if '/admin/settings' in current_path %}active{% endif %}">
+          <span class="icon">⚙️</span>
+          <span class="text">{{ t('admin.nav.settings') if t else 'System Settings' }}</span>
+        </a>
+
+        <!-- EXTENSIONS & STORES -->
+        <div class="sidebar-category">Extensions & Stores</div>
+
+        <a href="/admin/themes" class="sidebar-link {% if '/admin/themes' in current_path %}active{% endif %}">
+          <span class="icon">🎨</span>
+          <span class="text">{{ t('admin.nav.themes') if t else 'Themes' }}</span>
+        </a>
+
+        <a href="/admin/plugins" class="sidebar-link {% if current_path == '/admin/plugins' or current_path == '/admin/plugins/' %}active{% endif %}">
+          <span class="icon">🔌</span>
+          <span class="text">{{ t('admin.nav.plugins') if t else 'Plugins' }}</span>
+        </a>
+
+        <a href="/admin/repo" class="sidebar-link {% if '/admin/repo' in current_path %}active{% endif %}" style="color: #a855f7;">
+          <span class="icon">🏪</span>
+          <span class="text">{{ t('admin.nav.repo') if t else 'Repository Store' }}</span>
+        </a>
+
+        <!-- PLUGINS DYNAMIC NAVIGATION AREA -->
+        {% if plugin_area_admin_nav %}
+        <div class="sidebar-category mt-3 mb-2 px-3 text-uppercase text-secondary fw-bold small fs-7" style="letter-spacing: 0.5px;">Active Plugins</div>
+        {{ plugin_area_admin_nav|safe }}
+        {% endif %}
+
+      </nav>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="admin-main">
+      <main class="admin-content">
+        {% block content %}{% endblock %}
+      </main>
+
+      <!-- Footer -->
+      <footer class="admin-footer text-center">
+        <span>⚡ VlahX Core {{ app_version() }} Admin Engine • Isolated & Secure Modular Architecture</span>
+      </footer>
     </div>
   </div>
-
-  <!-- Admin Main Body -->
-  <main class="flex-grow-1 container-fluid px-4 py-3">
-    {% block content %}{% endblock %}
-  </main>
-
-  <footer class="bg-white border-top py-3 text-center text-secondary small mt-auto">
-    <div class="container">
-      <span>⚡ Blog 2.0 Core Admin Panel • Isolated & Secure Management Layout</span>
-    </div>
-  </footer>
 
   {% include "partials/media_modal.html" %}
 
   <script src="/static/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/bootstrap.bundle.min.js"></script>
-  <script src="/static/js/media-manager.js"></script>
+  <script src="/static/js/media-manager.js?v=20260903_1747"></script>
+
   <script>
     document.addEventListener("DOMContentLoaded", function() {
-      // Navbar toggler for mobile
-      const toggler = document.querySelector(".navbar-toggler");
-      const nav = document.getElementById("adminNavbarNav");
-      if (toggler && nav) {
-        toggler.addEventListener("click", function(e) {
-          e.preventDefault();
-          nav.classList.toggle("show");
+      // Sidebar Collapse Toggle Logic
+      const toggleBtn = document.getElementById("sidebarToggleBtn");
+      if (toggleBtn) {
+        toggleBtn.addEventListener("click", function() {
+          if (window.innerWidth < 992) {
+            document.documentElement.classList.toggle("sidebar-mobile-open");
+          } else {
+            const isCollapsed = document.documentElement.classList.toggle("sidebar-collapsed");
+            localStorage.setItem("vlahx_admin_sidebar_collapsed", isCollapsed ? "true" : "false");
+          }
         });
       }
 
-      // Universal Bulletproof Tab & Pill Switcher for All Admin Pages
+            // Universal Bulletproof Tab & Pill Switcher for All Admin Pages with URL & LocalStorage Persistence
       document.addEventListener("click", function(e) {
         const btn = e.target.closest('[data-bs-toggle="tab"], [data-bs-toggle="pill"]');
         if (!btn) return;
@@ -141,7 +353,6 @@
         const targetPane = document.querySelector(targetSelector);
         if (!targetPane) return;
 
-        // Deactivate all nav links in the same nav list
         const navList = btn.closest(".nav");
         if (navList) {
           navList.querySelectorAll(".nav-link").forEach(link => {
@@ -149,20 +360,18 @@
             if (link.dataset.bsToggle === "pill") {
               link.classList.remove("bg-primary", "text-white", "shadow-sm");
               if (!link.id || !link.id.includes("global-json")) {
-                link.classList.add("text-secondary", "bg-white", "border");
+                link.classList.add("text-body-secondary", "bg-body-tertiary", "border");
               }
             }
           });
         }
 
-        // Activate target nav link
         btn.classList.add("active");
         if (btn.dataset.bsToggle === "pill" && (!btn.id || !btn.id.includes("global-json"))) {
-          btn.classList.remove("text-secondary", "bg-white", "border");
+          btn.classList.remove("text-body-secondary", "bg-body-tertiary", "border");
           btn.classList.add("bg-primary", "text-white", "shadow-sm");
         }
 
-        // Hide all sibling panes in the same tab-content container
         const tabContent = targetPane.parentElement;
         if (tabContent && tabContent.classList.contains("tab-content")) {
           tabContent.querySelectorAll(":scope > .tab-pane").forEach(pane => {
@@ -171,10 +380,62 @@
           });
         }
 
-        // Show target pane
         targetPane.classList.add("show", "active");
         targetPane.style.display = "block";
+
+        // Persist Tab choice per page URL in localStorage and hash
+        const pageKey = "vlahx_tab_" + window.location.pathname.replace(/\//g, "_");
+        localStorage.setItem(pageKey, targetSelector);
+        if (history.replaceState) {
+          history.replaceState(null, null, targetSelector);
+        }
       });
+
+      // Restore active tab on page load
+      const pageKey = "vlahx_tab_" + window.location.pathname.replace(/\//g, "_");
+      const savedSelector = window.location.hash || localStorage.getItem(pageKey);
+      if (savedSelector && savedSelector.startsWith('#')) {
+        const targetBtn = document.querySelector(`[data-bs-target="${savedSelector}"], [href="${savedSelector}"]`);
+        if (targetBtn) {
+          setTimeout(() => targetBtn.click(), 50);
+        }
+      }
+    });
+
+    // Theme Switcher Logic
+    function updateAdminThemeUI(theme) {
+      const icon = document.getElementById("adminThemeIcon");
+      const text = document.getElementById("adminThemeText");
+      const btn = document.getElementById("adminThemeToggleBtn");
+      if (theme === "dark") {
+        if (icon) icon.innerText = "🌙";
+        if (text) text.innerText = "Dark Mode";
+        if (btn) {
+          btn.classList.remove("btn-outline-secondary");
+          btn.classList.add("btn-outline-warning");
+        }
+      } else {
+        if (icon) icon.innerText = "☀️";
+        if (text) text.innerText = "Light Mode";
+        if (btn) {
+          btn.classList.remove("btn-outline-warning");
+          btn.classList.add("btn-outline-secondary");
+        }
+      }
+    }
+
+    function toggleAdminTheme() {
+      const current = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-bs-theme", next);
+      localStorage.setItem("vlahx_admin_theme", next);
+      updateAdminThemeUI(next);
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const currentTheme = localStorage.getItem("vlahx_admin_theme") || "dark";
+      document.documentElement.setAttribute("data-bs-theme", currentTheme);
+      updateAdminThemeUI(currentTheme);
     });
   </script>
 </body>

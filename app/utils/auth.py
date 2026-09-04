@@ -125,7 +125,12 @@ def get_user_roles(user: Any) -> list[str]:
         role_str = getattr(user, "role", "reader") or "reader"
     if not role_str:
         return ["reader"]
-    return [r.strip().lower() for r in str(role_str).split(",") if r.strip()]
+    roles = [r.strip().lower() for r in str(role_str).split(",") if r.strip()]
+    if "admin" in roles:
+        for r in ("developer", "editor", "reader"):
+            if r not in roles:
+                roles.append(r)
+    return roles
 
 def user_has_role(user: Any, *allowed_roles: str) -> bool:
     user_roles = set(get_user_roles(user))

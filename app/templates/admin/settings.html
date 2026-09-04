@@ -1,153 +1,254 @@
 {% extends "admin/admin_base.html" %}
 
+{% macro image_block(label, key, path, empty_hint=None) %}
+<div class="border rounded-3 p-3 h-100 bg-body-tertiary">
+  <h3 class="h6 mb-3 fw-bold">{{ label }}</h3>
+  <div class="row g-3 align-items-center">
+    <div class="col-auto">
+      <div class="bg-body rounded-3 d-flex align-items-center justify-content-center border" style="width: 88px; height: 88px; overflow: hidden;">
+        {% if path %}
+        <img src="{{ path }}" alt="" class="img-fluid" style="max-width: 88px; max-height: 88px; object-fit: contain;" loading="lazy" />
+        {% else %}
+        <span class="small text-body-secondary text-center px-1">{{ empty_hint or '—' }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col">
+      <p class="small text-break text-body-secondary mb-2">{% if path %}<code>{{ path }}</code>{% else %}<span class="text-body-secondary">{{ empty_hint or '—' }}</span>{% endif %}</p>
+      <form method="post" action="/admin/settings/upload-image" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <input type="hidden" name="setting_key" value="{{ key }}" />
+        <input class="form-control form-control-sm" type="file" name="file" accept="image/*,.ico" style="max-width: 220px;" required />
+        <button class="btn btn-sm btn-primary fw-semibold" type="submit">{{ t('admin.actions.upload') if t else 'Upload' }}</button>
+      </form>
+      <form method="post" action="/admin/settings/clear-image">
+        <input type="hidden" name="setting_key" value="{{ key }}" />
+        <button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('{{ t('admin.settings.clearSetting') if t else 'Remove Image' }}?');">{{ t('admin.settings.clearSetting') if t else 'Remove Image' }}</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
 {% block content %}
 <section class="py-4">
+  <!-- Header Title -->
   <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3 mb-4">
     <div>
-      <h1 class="h3 mb-1">{{ t('admin.settings.title') }}</h1>
-      <p class="text-secondary mb-0">
-        {{ t('admin.settings.subtitle') }}
+      <h1 class="h3 mb-1">{{ t('admin.settings.title') if t else 'System Settings' }}</h1>
+      <p class="text-body-secondary mb-0">
+        {{ t('admin.settings.subtitle') if t else 'Configure global platform settings, branding, homepage routing, navigation, and media processing.' }}
       </p>
     </div>
   </div>
 
-  <form method="post" action="/admin/settings/save" class="mb-4">
-    <div class="row g-4 align-items-start">
-      <div class="col-12 col-lg-6">
-        <div class="card card-modern h-100">
-          <div class="card-body">
-            <h2 class="h5 mb-3">{{ t('admin.settings.nameAndDescription') }}</h2>
-            <div class="mb-3">
-              <label class="form-label">{{ t('admin.settings.siteName') }}</label>
-              <input class="form-control" type="text" name="site_display_name" value="{{ settings_site_name }}" placeholder="Ex: Blog" autocomplete="off" />
-            </div>
-            <div class="mb-3">
-              <label class="form-label">{{ t('admin.settings.siteTagline') }}</label>
-              <textarea class="form-control" name="site_tagline" rows="2" placeholder="Road journal, technical articles, and stories from the road.">{{ settings_site_tagline }}</textarea>
-            </div>
+  <!-- Messages Alert Flash -->
+  {% if msg %}
+  <div class="alert alert-success alert-dismissible fade show rounded-3 mb-4" role="alert">
+    <strong>✓ Success:</strong> {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+  {% if err %}
+  <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-4" role="alert">
+    <strong>❌ Error:</strong> {{ err }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
 
-            {% if active_locales and active_locales|length > 1 %}
-            <hr class="my-3" />
-            <h3 class="h6 mb-2">{{ t('admin.settings.translationsPerLanguage') }}</h3>
-            {% for loc in active_locales %}
-            <div class="mb-3 border p-3 rounded-3 bg-body-tertiary">
-              <h4 class="h6 mb-2 text-primary">🌐 {{ loc.name }} ({{ loc.code|upper }})</h4>
-              <div class="mb-2">
-                <label class="form-label small fw-semibold">Site Name ({{ loc.code|upper }})</label>
-                <input class="form-control form-control-sm" type="text" name="site_display_name_{{ loc.code }}" value="{{ localized_site_names.get(loc.code, '') }}" placeholder="Ex: Blog" />
+  <!-- Settings Nav Pills (Tabs) -->
+  <ul class="nav nav-pills gap-2 mb-4 p-2 bg-body-tertiary rounded-3 border" id="settingsTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active fw-semibold rounded-2 px-3 py-2" id="tab-btn-general" data-bs-toggle="pill" data-bs-target="#pane-general" type="button" role="tab">
+        {{ t('admin.settings.tabGeneral') if t else '🌐 General & Branding' }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-semibold rounded-2 px-3 py-2 text-body-secondary" id="tab-btn-navigation" data-bs-toggle="pill" data-bs-target="#pane-navigation" type="button" role="tab">
+        {{ t('admin.settings.tabNavigation') if t else '🏠 Navigation & Homepage' }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-semibold rounded-2 px-3 py-2 text-body-secondary" id="tab-btn-media" data-bs-toggle="pill" data-bs-target="#pane-media" type="button" role="tab">
+        {{ t('admin.settings.tabMedia') if t else '🖼️ Media & Image Processing' }}
+      </button>
+    </li>
+  </ul>
+
+  <!-- Main Settings Form (NO NESTED FORMS ALLOWED INSIDE THIS FORM) -->
+  <form method="post" action="/admin/settings/save" id="settingsForm" novalidate>
+    <div class="tab-content" id="settingsTabsContent">
+      
+      <!-- TAB 1: GENERAL & BRANDING -->
+      <div class="tab-pane fade show active" id="pane-general" role="tabpanel">
+        <div class="vstack gap-4">
+          <!-- FULL WIDTH IDENTITY & THEME CARD -->
+          <div class="card card-modern shadow-sm">
+            <div class="card-body p-4">
+              <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4 pb-3 border-bottom">
+                <div>
+                  <h2 class="h5 mb-1 fw-bold">{{ t('admin.settings.nameAndDescription') if t else 'Site Identity & Tagline' }}</h2>
+                  <p class="text-body-secondary small mb-0">Configure site display name and description per language.</p>
+                </div>
+                <div style="min-width: 260px;">
+                  <label class="form-label small fw-bold mb-1">{{ t('admin.settings.activeTheme') if t else 'Active Theme' }}</label>
+                  <select class="form-select" name="active_theme">
+                    {% for t_theme in installed_themes %}
+                    <option value="{{ t_theme.slug|e }}" {% if t_theme.slug == active_theme_slug %}selected{% endif %}>
+                      {{ t_theme.name }} — {{ t_theme.author }}
+                    </option>
+                    {% endfor %}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label class="form-label small fw-semibold">Site Tagline ({{ loc.code|upper }})</label>
-                <textarea class="form-control form-control-sm" name="site_tagline_{{ loc.code }}" rows="2" placeholder="Tagline for {{ loc.code }}">{{ localized_site_taglines.get(loc.code, '') }}</textarea>
+
+              <!-- PER-LANGUAGE IDENTITY CARDS -->
+              <div class="row g-3">
+                {% for loc in active_locales %}
+                <div class="col-12 col-md-6">
+                  <div class="p-3 border rounded-3 bg-body-tertiary h-100">
+                    <h3 class="h6 mb-3 fw-bold text-body d-flex align-items-center justify-content-between">
+                      <span>🌐 {{ loc.name }} ({{ loc.code|upper }})</span>
+                      {% if loc.is_default %}<span class="badge bg-primary rounded-pill small">Default</span>{% endif %}
+                    </h3>
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold">Site Name ({{ loc.code|upper }})</label>
+                      <input class="form-control" type="text" name="site_display_name_{{ loc.code }}" value="{{ localized_site_names.get(loc.code, '') or settings_site_name }}" placeholder="Ex: VlahX Engine" />
+                    </div>
+                    <div>
+                      <label class="form-label small fw-semibold">Site Tagline ({{ loc.code|upper }})</label>
+                      <textarea class="form-control" name="site_tagline_{{ loc.code }}" rows="2" placeholder="Tagline for {{ loc.code }}">{{ localized_site_taglines.get(loc.code, '') or settings_site_tagline }}</textarea>
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
               </div>
             </div>
-            {% endfor %}
-            {% endif %}
           </div>
         </div>
       </div>
 
-      <div class="col-12 col-lg-6">
+      <!-- TAB 2: NAVIGATION & HOMEPAGE -->
+      <div class="tab-pane fade" id="pane-navigation" role="tabpanel">
         <div class="vstack gap-4">
-          <div class="card card-modern">
-            <div class="card-body">
-              <h2 class="h5 mb-3">{{ t('admin.settings.articleUrls') }}</h2>
-              <div class="mb-0">
-                <label class="form-label">{{ t('admin.settings.publicArticlePath') }}</label>
-                <select class="form-select" name="flat_post_urls">
-                  <option value="0" {% if not flat_post_urls %}selected{% endif %}>{{ t('admin.settings.pathClassic') }}</option>
-                  <option value="1" {% if flat_post_urls %}selected{% endif %}>{{ t('admin.settings.pathShort') }}</option>
-                </select>
+          <!-- Root Router Homepage Selection -->
+          <div class="card card-modern shadow-sm">
+            <div class="card-body p-4">
+              <h2 class="h5 mb-2 fw-bold">{{ t('admin.settings.homepageRouting') if t else 'Homepage Router (Root Domain /)' }}</h2>
+              <p class="text-body-secondary small mb-3">
+                {{ t('admin.settings.homepageHelp') if t else 'Select what page or plugin feed opens when visitors land on your main domain (/):' }}
+              </p>
+              
+              <div class="row g-3 align-items-center">
+                <div class="col-12 col-md-8">
+                  <select class="form-select" name="homepage_mode">
+                    <option value="welcome" {% if homepage_mode == 'welcome' or homepage_mode == 'default' or not homepage_mode %}selected{% endif %}>
+                      {{ t('admin.settings.homepageWelcomeOption') if t else '🏠 Core Welcome Landing Page' }}
+                    </option>
+                    
+                    {% if is_plugin_active and is_plugin_active('vlahx_blog') %}
+                    <option value="blog" {% if homepage_mode == 'blog' %}selected{% endif %}>
+                      {{ t('admin.settings.homepageBlogFeedOption') if t else '📚 Blog Articles Feed' }}
+                    </option>
+                    {% for p in static_pages %}
+                    <option value="page:{{ p.slug|e }}" {% if homepage_mode == 'page:' ~ p.slug %}selected{% endif %}>
+                      {{ t('admin.settings.homepageStaticPageOption') if t else '📄 Static Page: ' }}{{ p.title|e }} ({{ p.slug|e }})
+                    </option>
+                    {% endfor %}
+                    {% if homepage_mode.startswith('page:') %}
+                    {% set cur_page_slug = homepage_mode[5:] %}
+                    {% if not static_pages|selectattr('slug', 'equalto', cur_page_slug)|list %}
+                    <option value="page:{{ cur_page_slug|e }}" selected>
+                      {{ t('admin.settings.homepageStaticPageOption') if t else '📄 Static Page: ' }}{{ cur_page_slug|e }} ({{ cur_page_slug|e }})
+                    </option>
+                    {% endif %}
+                    {% endif %}
+                    {% endif %}
+
+                    {% if is_plugin_active and is_plugin_active('minishop') %}
+                    <option value="shop" {% if homepage_mode == 'shop' %}selected{% endif %}>
+                      {{ t('admin.settings.homepageShopOption') if t else '🛍️ Online Store (Minishop)' }}
+                    </option>
+                    {% endif %}
+                  </select>
+                </div>
+              </div>
+
+              {% if not (is_plugin_active and (is_plugin_active('vlahx_blog') or is_plugin_active('minishop'))) %}
+              <div class="alert alert-info border-info border-opacity-25 bg-info bg-opacity-10 rounded-3 mt-3 mb-0 d-flex align-items-center gap-2">
+                <span class="fs-5">ℹ️</span>
+                <div class="small">
+                  {{ t('admin.settings.homepageNoPluginsNotice') if t else 'To set a dynamic article feed, static page, or online store as your homepage, please install and activate the Blog (vlahx_blog) or Shop (minishop) plugins from the Repo Store.' }}
+                  <a href="/admin/repo" class="fw-bold ms-1 text-decoration-underline">{{ t('admin.nav.repo') if t else 'Repo Store' }}</a>.
+                </div>
+              </div>
+              {% else %}
+              <div class="form-text mt-2 text-body-secondary">
+                {{ t('admin.settings.homepageStaticNote') if t else 'Note: If a static page is set as homepage, blog articles will remain accessible at /blog.' }}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Article Path Format -->
+          <div class="card card-modern shadow-sm">
+            <div class="card-body p-4">
+              <h2 class="h5 mb-3 fw-bold">{{ t('admin.settings.articleUrls') if t else 'Article URL Structure' }}</h2>
+              <div class="row g-3 align-items-center">
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold">{{ t('admin.settings.publicArticlePath') if t else 'Public Article Path Format' }}</label>
+                  <select class="form-select" name="flat_post_urls">
+                    <option value="0" {% if not flat_post_urls %}selected{% endif %}>{{ t('admin.settings.pathClassic') if t else 'Classic (/post/slug)' }}</option>
+                    <option value="1" {% if flat_post_urls %}selected{% endif %}>{{ t('admin.settings.pathShort') if t else 'Short (/slug)' }}</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="card card-modern">
-            <div class="card-body">
-              <h2 class="h5 mb-3">🏠 Prima pagină a site-ului (Root Router)</h2>
-              <div class="mb-0">
-                <label class="form-label">Alege ce se deschide când vizitatorii intră pe domeniul principal (<code>/</code>):</label>
-                <select class="form-select" name="homepage_mode">
-                  <option value="blog" {% if homepage_mode == 'blog' %}selected{% endif %}>📚 Feed articole Blog (Implicit)</option>
-                  {% for p in static_pages %}
-                  <option value="page:{{ p.slug|e }}" {% if homepage_mode == 'page:' ~ p.slug %}selected{% endif %}>
-                    📄 Pagină statică: {{ p.title|e }} ({{ p.slug|e }})
-                  </option>
-                  {% endfor %}
-                  {% if homepage_mode.startswith('page:') %}
-                    {% set cur_page_slug = homepage_mode[5:] %}
-                    {% if not static_pages|selectattr('slug', 'equalto', cur_page_slug)|list %}
-                    <option value="page:{{ cur_page_slug|e }}" selected>
-                      📄 Pagină statică: {{ cur_page_slug|e }} ({{ cur_page_slug|e }})
-                    </option>
-                    {% endif %}
-                  {% endif %}
-                  {% if is_plugin_active and is_plugin_active('minishop') %}
-                  <option value="shop" {% if homepage_mode == 'shop' %}selected{% endif %}>🛍️ Magazin Online (Minishop)</option>
-                  {% endif %}
-                </select>
-                <small class="text-secondary d-block mt-2">
-                  Dacă alegi o pagină statică ca primă pagină, articolele de pe blog vor fi accesibile la <code>/blog</code>.
-                </small>
-              </div>
-            </div>
-
-          <div class="card card-modern">
-            <div class="card-body">
+          <!-- Custom Navbar & Footer Links -->
+          <div class="card card-modern shadow-sm">
+            <div class="card-body p-4">
               <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="h5 mb-0">⚡ Meniu Navigare Navbar & Footer</h2>
+                <h2 class="h5 mb-0 fw-bold">{{ t('admin.settings.navManagerTitle') if t else 'Navbar & Footer Custom Links' }}</h2>
                 <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="addNavRow()">
-                  ➕ Adaugă Link
+                  {{ t('admin.settings.addLinkBtn') if t else '➕ Add Link' }}
                 </button>
               </div>
-              <p class="text-secondary small mb-3">
-                Adaugă linkuri în site și specifică eticheta pentru fiecare limbă activă. Poți alege unde se afișează fiecare link (🧭 Navbar sus, 🦶 Footer subsol, sau 🌐 Ambele).
+              <p class="text-body-secondary small mb-3">
+                {{ t('admin.settings.navManagerHelp') if t else 'Configure custom links for top navigation (Navbar) and footer. Drag and drop rows to reorder.' }}
               </p>
 
               <div id="nav-rows-container" class="vstack gap-3">
                 {% for link in nav_items %}
-                <div class="p-3 border rounded bg-body-tertiary nav-row position-relative" draggable="true">
+                <div class="p-3 border rounded-3 bg-body-tertiary nav-row position-relative" draggable="true">
                   <div class="row g-2 align-items-center mb-2">
-                    <div class="col-12 col-md-5 d-flex align-items-center gap-2">
-                      <span class="drag-handle text-secondary fs-5" style="cursor: grab;" title="Trage pentru reordonare">⋮⋮</span>
-                      <div class="flex-grow-1">
-                        <label class="form-label small fw-semibold text-secondary mb-1">Cale / URL</label>
-                        <input type="text" name="nav_url" class="form-control form-control-sm" value="{{ link.url or link.href|e }}" placeholder="Cale/URL (ex: /privacy)" />
-                      </div>
+                    <div class="col-auto"><span class="fs-5 text-body-secondary cursor-grab" title="Drag to reorder">⋮⋮</span></div>
+                    <div class="col-12 col-md-4">
+                      <input class="form-control" type="text" name="nav_url[]" value="{{ link.url|default('') }}" placeholder="URL (ex: /about sau https://...)" />
                     </div>
-                    <div class="col-6 col-md-3">
-                      <label class="form-label small fw-semibold text-secondary mb-1">Plasare Link</label>
-                      <select name="nav_location" class="form-select form-select-sm">
-                        <option value="navbar" {% if link.location == 'navbar' or not link.location %}selected{% endif %}>🧭 Navbar (sus)</option>
-                        <option value="footer" {% if link.location == 'footer' %}selected{% endif %}>🦶 Footer (subsol)</option>
-                        <option value="both" {% if link.location == 'both' %}selected{% endif %}>🌐 Ambele</option>
+                    <div class="col-12 col-md-3">
+                      <select class="form-select" name="nav_placement[]">
+                        <option value="navbar" {% if link.placement == 'navbar' %}selected{% endif %}>🧭 Navbar</option>
+                        <option value="footer" {% if link.placement == 'footer' %}selected{% endif %}>🦶 Footer</option>
+                        <option value="both" {% if link.placement == 'both' %}selected{% endif %}>🌐 Both</option>
                       </select>
                     </div>
-                    <div class="col-4 col-md-2">
-                      <label class="form-label small fw-semibold text-secondary mb-1">Target</label>
-                      <select name="nav_target" class="form-select form-select-sm">
-                        <option value="_self" {% if link.target == '_self' or not link.target %}selected{% endif %}>_self</option>
-                        <option value="_blank" {% if link.target == '_blank' %}selected{% endif %}>_blank ↗</option>
-                      </select>
-                    </div>
-                    <div class="col-12 col-md-2 text-end align-self-end mb-1">
-                      <div class="btn-group btn-group-sm w-100" role="group">
-                        <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowUp(this)" title="Mută mai sus">⬆️</button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowDown(this)" title="Mută mai jos">⬇️</button>
-                        <button type="button" class="btn btn-outline-danger" onclick="this.closest('.nav-row').remove()" title="Șterge link">🗑️</button>
+                    <div class="col-12 col-md-4 text-end">
+                      <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowUp(this)" title="Move Up">⬆️</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowDown(this)" title="Move Down">⬇️</button>
+                        <button type="button" class="btn btn-outline-danger" onclick="this.closest('.nav-row').remove()" title="Delete">🗑️</button>
                       </div>
                     </div>
                   </div>
 
                   <div class="row g-2 align-items-center pt-2 border-top">
-                    <div class="col-12"><span class="small fw-bold text-dark">🌐 Etichete per limbă:</span></div>
-                    {% set item_labels = link.labels if link.labels and link.labels is mapping else {} %}
+                    <div class="col-12"><span class="small fw-bold text-body">🌐 Labels per language:</span></div>
                     {% for loc in active_locales %}
-                    {% set cur_val = item_labels.get(loc.code) or (link.label if loop.first else '') %}
-                    <div class="col-12 col-sm-6 col-md-4">
+                    <div class="col-12 col-md-4">
                       <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-body fw-bold text-uppercase">{{ loc.code }}</span>
-                        <input type="text" name="nav_label_{{ loc.code }}" class="form-control" value="{{ cur_val|e }}" placeholder="Etichetă {{ loc.name }}..." />
+                        <span class="input-group-text fw-bold">{{ loc.code|upper }}</span>
+                        <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" value="{{ link['label_' ~ loc.code]|default(link.label)|default('') }}" placeholder="Label {{ loc.code }}" />
                       </div>
                     </div>
                     {% endfor %}
@@ -155,229 +256,171 @@
                 </div>
                 {% endfor %}
               </div>
-
-              <script>
-              function moveNavRowUp(btn) {
-                const row = btn.closest('.nav-row');
-                if (row && row.previousElementSibling) {
-                  row.parentNode.insertBefore(row, row.previousElementSibling);
-                  highlightRow(row);
-                }
-              }
-
-              function moveNavRowDown(btn) {
-                const row = btn.closest('.nav-row');
-                if (row && row.nextElementSibling) {
-                  row.parentNode.insertBefore(row.nextElementSibling, row);
-                  highlightRow(row);
-                }
-              }
-
-              function highlightRow(row) {
-                row.classList.add('border-primary', 'shadow-sm');
-                setTimeout(() => row.classList.remove('border-primary', 'shadow-sm'), 600);
-              }
-
-              function addNavRow() {
-                const container = document.getElementById('nav-rows-container');
-                const row = document.createElement('div');
-                row.className = 'p-3 border rounded bg-body-tertiary nav-row position-relative';
-                row.setAttribute('draggable', 'true');
-                
-                let localeInputsHtml = '';
-                {% for loc in active_locales %}
-                localeInputsHtml += `
-                  <div class="col-12 col-sm-6 col-md-4">
-                    <div class="input-group input-group-sm">
-                      <span class="input-group-text bg-body fw-bold text-uppercase">{{ loc.code }}</span>
-                      <input type="text" name="nav_label_{{ loc.code }}" class="form-control" placeholder="Etichetă {{ loc.name }}..." />
-                    </div>
-                  </div>
-                `;
-                {% endfor %}
-
-                row.innerHTML = `
-                  <div class="row g-2 align-items-center mb-2">
-                    <div class="col-12 col-md-5 d-flex align-items-center gap-2">
-                      <span class="drag-handle text-secondary fs-5" style="cursor: grab;" title="Trage pentru reordonare">⋮⋮</span>
-                      <div class="flex-grow-1">
-                        <label class="form-label small fw-semibold text-secondary mb-1">Cale / URL</label>
-                        <input type="text" name="nav_url" class="form-control form-control-sm" placeholder="Cale/URL (ex: /privacy)" />
-                      </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                      <label class="form-label small fw-semibold text-secondary mb-1">Plasare Link</label>
-                      <select name="nav_location" class="form-select form-select-sm">
-                        <option value="navbar" selected>🧭 Navbar (sus)</option>
-                        <option value="footer">🦶 Footer (subsol)</option>
-                        <option value="both">🌐 Ambele</option>
-                      </select>
-                    </div>
-                    <div class="col-4 col-md-2">
-                      <label class="form-label small fw-semibold text-secondary mb-1">Target</label>
-                      <select name="nav_target" class="form-select form-select-sm">
-                        <option value="_self" selected>_self</option>
-                        <option value="_blank">_blank ↗</option>
-                      </select>
-                    </div>
-                    <div class="col-12 col-md-2 text-end align-self-end mb-1">
-                      <div class="btn-group btn-group-sm w-100" role="group">
-                        <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowUp(this)" title="Mută mai sus">⬆️</button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowDown(this)" title="Mută mai jos">⬇️</button>
-                        <button type="button" class="btn btn-outline-danger" onclick="this.closest('.nav-row').remove()" title="Șterge link">🗑️</button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="row g-2 align-items-center pt-2 border-top">
-                    <div class="col-12"><span class="small fw-bold text-dark">🌐 Etichete per limbă:</span></div>
-                    ${localeInputsHtml}
-                  </div>
-                `;
-                container.appendChild(row);
-              }
-
-              document.addEventListener('DOMContentLoaded', function() {
-                const container = document.getElementById('nav-rows-container');
-                let draggedItem = null;
-
-                container.addEventListener('dragstart', function(e) {
-                  const target = e.target.closest('.nav-row');
-                  if (target) {
-                    draggedItem = target;
-                    target.classList.add('opacity-50');
-                    e.dataTransfer.effectAllowed = 'move';
-                  }
-                });
-
-                container.addEventListener('dragend', function(e) {
-                  if (draggedItem) {
-                    draggedItem.classList.remove('opacity-50');
-                    draggedItem = null;
-                  }
-                });
-
-                container.addEventListener('dragover', function(e) {
-                  e.preventDefault();
-                  const targetRow = e.target.closest('.nav-row');
-                  if (targetRow && targetRow !== draggedItem) {
-                    const rect = targetRow.getBoundingClientRect();
-                    const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
-                    container.insertBefore(draggedItem, next ? targetRow.nextSibling : targetRow);
-                  }
-                });
-              });
-              </script>
-            </div>
-          </div>
-
-          <div class="card card-modern">
-            <div class="card-body">
-              <h2 class="h5 mb-3">{{ t('admin.settings.theme') }}</h2>
-              <div class="mb-0">
-                <label class="form-label">{{ t('admin.settings.activeTheme') }}</label>
-                <select class="form-select" name="active_theme">
-                  {% for t in installed_themes %}
-                  <option value="{{ t.slug|e }}" {% if t.slug == active_theme_slug %}selected{% endif %}>
-                    {{ t.name }} — {{ t.author }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="col-12">
-        <div class="card card-modern">
-          <div class="card-body">
-            <div class="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-start align-items-md-center">
-              <div>
-                <h2 class="h5 mb-1">{{ t('admin.settings.postImageProcessing') }}</h2>
-                <p class="text-secondary small mb-0">{{ t('admin.settings.postImageProcessingSubtitle') }}</p>
-              </div>
-            </div>
-            <hr class="my-3" />
+      <!-- TAB 3: MEDIA & PROCESSING -->
+      <div class="tab-pane fade" id="pane-media" role="tabpanel">
+        <div class="card card-modern shadow-sm">
+          <div class="card-body p-4">
+            <h2 class="h5 mb-1 fw-bold">{{ t('admin.settings.postImageProcessing') if t else 'Image Processing & Optimization' }}</h2>
+            <p class="text-body-secondary small mb-4">{{ t('admin.settings.postImageProcessingSubtitle') if t else 'Configure automatic image resizing and social card thumbnail generation using Pillow.' }}</p>
+            
             <div class="row g-3">
               <div class="col-12 col-md-4">
-                <label class="form-label">{{ t('admin.settings.processingMode') }}</label>
+                <label class="form-label fw-semibold">{{ t('admin.settings.processingMode') if t else 'Image Processing Mode' }}</label>
                 <select class="form-select" name="post_image_crop_og">
-                  <option value="0" {% if not post_image_crop_og %}selected{% endif %}>{{ t('admin.settings.modeThumbnail') }}</option>
-                  <option value="1" {% if post_image_crop_og %}selected{% endif %}>{{ t('admin.settings.modeCrop') }}</option>
+                  <option value="0" {% if not post_image_crop_og %}selected{% endif %}>{{ t('admin.settings.modeThumbnail') if t else 'Resize & Preserve Aspect Ratio' }}</option>
+                  <option value="1" {% if post_image_crop_og %}selected{% endif %}>{{ t('admin.settings.modeCrop') if t else 'Crop & Center (OpenGraph 1200x630)' }}</option>
                 </select>
               </div>
               <div class="col-12 col-md-4">
-                <label class="form-label">{{ t('admin.settings.maxEdge') }}</label>
+                <label class="form-label fw-semibold">{{ t('admin.settings.maxEdge') if t else 'Max Edge Size (px)' }}</label>
                 <input class="form-control" type="number" name="post_image_max_edge" min="1" value="{{ post_image_max_edge }}" />
               </div>
               <div class="col-12 col-md-2">
-                <label class="form-label">{{ t('admin.settings.cropWidth') }}</label>
+                <label class="form-label fw-semibold">{{ t('admin.settings.cropWidth') if t else 'Output Width (px)' }}</label>
                 <input class="form-control" type="number" name="post_image_output_width" min="1" value="{{ post_image_output_width }}" />
               </div>
               <div class="col-12 col-md-2">
-                <label class="form-label">{{ t('admin.settings.cropHeight') }}</label>
+                <label class="form-label fw-semibold">{{ t('admin.settings.cropHeight') if t else 'Output Height (px)' }}</label>
                 <input class="form-control" type="number" name="post_image_output_height" min="1" value="{{ post_image_output_height }}" />
               </div>
             </div>
-            <div class="d-flex justify-content-end mt-4">
-              <button class="btn btn-primary" type="submit">{{ t('admin.settings.saveSettings') }}</button>
-            </div>
           </div>
         </div>
       </div>
+
+    </div>
+
+    <!-- STICKY FOOTER SAVE BAR -->
+    <div class="sticky-bottom bg-body border-top shadow-lg p-3 rounded-3 mt-4 d-flex justify-content-between align-items-center">
+      <span class="fw-semibold text-body-secondary">{{ t('admin.settings.saveHint') if t else 'Modified settings? Remember to click Save All Settings!' }}</span>
+      <button class="btn btn-success btn-lg px-4 fw-bold shadow-sm" type="submit">💾 {{ t('admin.settings.saveSettings') if t else 'Save All Settings' }}</button>
     </div>
   </form>
 
-  <div class="card card-modern">
-    <div class="card-body">
-      <h2 class="h5 mb-3">{{ t('admin.settings.imagesPreviewUpload') }}</h2>
-      <p class="small text-secondary mb-4">{{ t('admin.settings.imagesHelp') }}</p>
-
-      {% macro image_block(label, key, path, empty_hint=None) %}
-      <div class="border rounded p-3 h-100">
-        <h3 class="h6 mb-3">{{ label }}</h3>
-        <div class="row g-3 align-items-center">
-          <div class="col-auto">
-            <div class="bg-light rounded d-flex align-items-center justify-content-center border" style="width: 88px; height: 88px; overflow: hidden;">
-              {% if path %}
-              <img src="{{ path }}" alt="" class="img-fluid" style="max-width: 88px; max-height: 88px; object-fit: contain;" loading="lazy" />
-              {% else %}
-              <span class="small text-secondary text-center px-1">{{ empty_hint or '—' }}</span>
-              {% endif %}
-            </div>
-          </div>
-          <div class="col">
-            <p class="small text-break text-secondary mb-2">{% if path %}<code>{{ path }}</code>{% else %}<span class="text-muted">{{ empty_hint or '—' }}</span>{% endif %}</p>
-            <form method="post" action="/admin/settings/upload-image" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
-              <input type="hidden" name="setting_key" value="{{ key }}" />
-              <input class="form-control form-control-sm" type="file" name="file" accept="image/*,.ico" style="max-width: 220px;" required />
-              <button class="btn btn-sm btn-primary" type="submit">{{ t('admin.actions.upload') }}</button>
-            </form>
-            <form method="post" action="/admin/settings/clear-image" class="mt-2">
-              <input type="hidden" name="setting_key" value="{{ key }}" />
-              <button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('{{ t('admin.settings.clearSetting') }}?');">{{ t('admin.settings.clearSetting') }}</button>
-            </form>
-          </div>
-        </div>
-      </div>
-      {% endmacro %}
+  <!-- BRANDING LOGOS & FAVICON CARDS (PLACED SEPARATELY OUTSIDE settingsForm TO PREVENT NESTED HTML FORMS) -->
+  <div class="card card-modern mt-4 shadow-sm">
+    <div class="card-body p-4">
+      <h2 class="h5 mb-1 fw-bold">{{ t('admin.settings.imagesPreviewUpload') if t else 'Site Logos, Favicon & Social Cards' }}</h2>
+      <p class="small text-body-secondary mb-4">{{ t('admin.settings.imagesHelp') if t else 'Upload brand logos, favicons, navbar icons, and OpenGraph social cards.' }}</p>
 
       <div class="row g-4">
         <div class="col-12 col-lg-6">
-          {{ image_block("Favicon", "SITE_FAVICON_PATH", site_favicon_path) }}
+          {{ image_block(t('admin.settings.faviconLabel') if t else 'Favicon', "SITE_FAVICON_PATH", site_favicon_path) }}
         </div>
         <div class="col-12 col-lg-6">
-          {{ image_block("Imagine brand", "SITE_BRAND_IMAGE_PATH", site_brand_image_path) }}
+          {{ image_block(t('admin.settings.brandLogoLabel') if t else 'Brand Logo', "SITE_BRAND_IMAGE_PATH", site_brand_image_path) }}
         </div>
         <div class="col-12 col-lg-6">
-          {{ image_block("Icon navbar și hero", "SITE_NAV_ICON_PATH", site_nav_icon_path, "SVG implicit") }}
+          {{ image_block(t('admin.settings.navIconLabel') if t else 'Navbar & Hero Icon', "SITE_NAV_ICON_PATH", site_nav_icon_path, t('admin.settings.defaultSvg') if t else "Default SVG") }}
         </div>
         <div class="col-12 col-lg-6">
-          {{ image_block("Card Open Graph", "OG_CARD_IMAGE_PATH", og_card_image_path) }}
+          {{ image_block(t('admin.settings.ogCardLabel') if t else 'OpenGraph Social Card', "OG_CARD_IMAGE_PATH", og_card_image_path) }}
         </div>
       </div>
     </div>
   </div>
 </section>
+
+<!-- NAV LINK DRAG & DROP SCRIPTS -->
+<script>
+  function moveNavRowUp(btn) {
+    const row = btn.closest('.nav-row');
+    if (row && row.previousElementSibling) {
+      row.parentNode.insertBefore(row, row.previousElementSibling);
+    }
+  }
+
+  function moveNavRowDown(btn) {
+    const row = btn.closest('.nav-row');
+    if (row && row.nextElementSibling) {
+      row.parentNode.insertBefore(row.nextElementSibling, row);
+    }
+  }
+
+  function addNavRow() {
+    const container = document.getElementById('nav-rows-container');
+    if (!container) return;
+    
+    let localeInputsHtml = '';
+    {% for loc in active_locales %}
+    localeInputsHtml += `
+      <div class="col-12 col-md-4">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text fw-bold">{{ loc.code|upper }}</span>
+          <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" placeholder="Label {{ loc.code }}" />
+        </div>
+      </div>
+    `;
+    {% endfor %}
+
+    const row = document.createElement('div');
+    row.className = 'p-3 border rounded-3 bg-body-tertiary nav-row position-relative';
+    row.setAttribute('draggable', 'true');
+    row.innerHTML = `
+      <div class="row g-2 align-items-center mb-2">
+        <div class="col-auto"><span class="fs-5 text-body-secondary cursor-grab" title="Drag to reorder">⋮⋮</span></div>
+        <div class="col-12 col-md-4">
+          <input class="form-control" type="text" name="nav_url[]" placeholder="URL (ex: /about)" />
+        </div>
+        <div class="col-12 col-md-3">
+          <select class="form-select" name="nav_placement[]">
+            <option value="navbar">🧭 Navbar</option>
+            <option value="footer">🦶 Footer</option>
+            <option value="both" selected>🌐 Both</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-4 text-end">
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowUp(this)" title="Move Up">⬆️</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowDown(this)" title="Move Down">⬇️</button>
+            <button type="button" class="btn btn-outline-danger" onclick="this.closest('.nav-row').remove()" title="Delete">🗑️</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-2 align-items-center pt-2 border-top">
+        <div class="col-12"><span class="small fw-bold text-body">🌐 Labels per language:</span></div>
+        ${localeInputsHtml}
+      </div>
+    `;
+    container.appendChild(row);
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('nav-rows-container');
+    if (!container) return;
+    let draggedItem = null;
+
+    container.addEventListener('dragstart', function(e) {
+      const target = e.target.closest('.nav-row');
+      if (target) {
+        draggedItem = target;
+        target.classList.add('opacity-50');
+        e.dataTransfer.effectAllowed = 'move';
+      }
+    });
+
+    container.addEventListener('dragend', function(e) {
+      if (draggedItem) {
+        draggedItem.classList.remove('opacity-50');
+        draggedItem = null;
+      }
+    });
+
+    container.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      const targetRow = e.target.closest('.nav-row');
+      if (targetRow && targetRow !== draggedItem) {
+        const rect = targetRow.getBoundingClientRect();
+        const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+        container.insertBefore(draggedItem, next ? targetRow.nextSibling : targetRow);
+      }
+    });
+  });
+</script>
 {% endblock %}

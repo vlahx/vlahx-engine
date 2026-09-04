@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from app.models.db_models import User
-from app.plugins.vlahx_blog.models import Post as PostModel, Category
+
 
 from app.core.config import (
     APP_DIR,
@@ -45,16 +45,26 @@ from app.core.config import (
     is_static_page_slug,
     post_public_path,
 )
-from app.core.posts_db import (
-    create_category,
-    delete_category_by_id,
-    delete_post,
-    get_post,
-    list_categories,
-    list_posts,
-    save_post,
-    slugify,
-)
+try:
+    from app.plugins.vlahx_blog.posts_db import (
+        create_category,
+        delete_category_by_id,
+        delete_post,
+        get_post,
+        list_categories,
+        list_posts,
+        save_post,
+        slugify,
+    )
+except ImportError:
+    def list_posts(*args, **kwargs): return []
+    def get_post(*args, **kwargs): return None
+    def list_categories(*args, **kwargs): return []
+    def create_category(*args, **kwargs): return None
+    def delete_category_by_id(*args, **kwargs): return False
+    def delete_post(*args, **kwargs): return False
+    def save_post(*args, **kwargs): return None
+    def slugify(text): return text.lower()
 from app.core.site_settings import read_settings, write_settings
 from app.utils.db import SessionLocal
 from app.models.db_models import AppSetting
@@ -101,29 +111,22 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
 
     @router.get("/admin", response_class=HTMLResponse)
     @role_required("admin", "editor", "author")
-    async def admin_home(request: Request, db: Session = Depends(get_db)):
-        user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
-        if user and user.role == "author":
-            from app.plugins.vlahx_blog.models import Post
-            from sqlalchemy import select
-            stmt = select(Post).where(Post.author_id == user.id).order_by(Post.created_at.desc())
-            posts = db.execute(stmt).scalars().all()
-        else:
-            posts = list_posts(db, include_drafts=True)
-        categories = list_categories(db)
+    async def admin_home(request: Request):
         return render_template(
             templates,
             request=request,
             name="admin/index.html",
-            context={"posts": posts, "categories": categories, "title": "Admin Dashboard"},
+            context={"title": "Admin Dashboard"},
         )
 
     @router.get("/admin/users", response_class=HTMLResponse)
+    @router.get("/admin/users/", response_class=HTMLResponse)
     @role_required("admin")
-    async def admin_users(request: Request, msg: str | None = None, err: str | None = None, db: Session = Depends(get_db)):
+    async def admin_users(request: Request, msg: str | None = None, err: str | None = None):
         from app.models.db_models import User
         from sqlalchemy import select
-        users = db.execute(select(User).order_by(User.id.asc())).scalars().all()
+        with SessionLocal() as db:
+            users = db.execute(select(User).order_by(User.id.asc())).scalars().all()
         return render_template(
             templates,
             request=request,
@@ -138,13 +141,13 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         from sqlalchemy import select, func
         target_user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
         if not target_user:
-            return RedirectResponse(url="/admin/users?err=Utilizatorul+nu+a+fost+găsit", status_code=303)
+            return RedirectResponse(url="/admin/users?err=User+not+found", status_code=303)
         
         current_uid = getattr(request.state, "user_id", None)
         if current_uid and current_uid == user_id and role != "admin":
             admin_count = db.execute(select(func.count()).select_from(User).where(User.role == "admin")).scalar() or 0
             if admin_count <= 1:
-                return RedirectResponse(url="/admin/users?err=Nu+îți+poți+revoca+singur+rolul+de+Admin!", status_code=303)
+                return RedirectResponse(url="/admin/users?err=You+cannot+revoke+your+own+Admin+role!", status_code=303)
         
         form = await request.form()
         roles_selected = form.getlist("roles")
@@ -159,7 +162,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         final_role_str = ",".join(list(dict.fromkeys(clean_roles)))
         target_user.role = final_role_str
         db.commit()
-        return RedirectResponse(url="/admin/users?msg=Roluri+actualizate+cu+succes!", status_code=303)
+        return RedirectResponse(url="/admin/users?msg=User+roles+updated+successfully!", status_code=303)
 
     @router.post("/admin/users/{user_id}/approve-developer")
     @role_required("admin")
@@ -168,7 +171,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         from sqlalchemy import select
         target_user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
         if not target_user:
-            return RedirectResponse(url="/admin/users?err=Utilizatorul+nu+a+fost+găsit", status_code=303)
+            return RedirectResponse(url="/admin/users?err=User+not+found", status_code=303)
         
         current_roles = target_user.roles_list
         if "developer" not in current_roles:
@@ -177,7 +180,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         target_user.role = ",".join(list(dict.fromkeys(current_roles)))
         target_user.dev_status = "approved"
         db.commit()
-        return RedirectResponse(url="/admin/users?msg=Cerere+Developer+aprobată+cu+succes!", status_code=303)
+        return RedirectResponse(url="/admin/users?msg=Developer+request+approved+successfully!", status_code=303)
 
     @router.post("/admin/users/{user_id}/reject-developer")
     @role_required("admin")
@@ -186,11 +189,11 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         from sqlalchemy import select
         target_user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
         if not target_user:
-            return RedirectResponse(url="/admin/users?err=Utilizatorul+nu+a+fost+găsit", status_code=303)
+            return RedirectResponse(url="/admin/users?err=User+not+found", status_code=303)
         
         target_user.dev_status = "rejected"
         db.commit()
-        return RedirectResponse(url="/admin/users?msg=Cererea+de+Developer+a+fost+respinsă.", status_code=303)
+        return RedirectResponse(url="/admin/users?msg=Developer+request+was+rejected.", status_code=303)
 
     @router.post("/admin/users/{user_id}/delete")
     @role_required("admin")
@@ -201,21 +204,21 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
 
         target_user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
         if not target_user:
-            return RedirectResponse(url="/admin/users?err=Utilizatorul+nu+a+fost+găsit", status_code=303)
+            return RedirectResponse(url="/admin/users?err=User+not+found", status_code=303)
 
         current_uid = getattr(request.state, "user_id", None)
         if current_uid and current_uid == user_id:
-            return RedirectResponse(url="/admin/users?err=Nu+îți+poți+șterge+propriul+cont!", status_code=303)
+            return RedirectResponse(url="/admin/users?err=You+cannot+delete+your+own+account!", status_code=303)
 
         if target_user.role == "admin":
             admin_count = db.execute(select(func.count()).select_from(User).where(User.role == "admin")).scalar() or 0
             if admin_count <= 1:
-                return RedirectResponse(url="/admin/users?err=Nu+poți+șterge+singurul+Admin+din+sistem!", status_code=303)
+                return RedirectResponse(url="/admin/users?err=You+cannot+delete+the+only+Admin+in+the+system!", status_code=303)
 
         from app.core.user_purge import purge_user_data
         purge_user_data(db, user_id)
 
-        return RedirectResponse(url="/admin/users?msg=Utilizatorul+și+toate+datele+sale+au+fost+șterse+definitiv+cu+succes!", status_code=303)
+        return RedirectResponse(url="/admin/users?msg=User+and+all+associated+data+were+permanently+deleted.", status_code=303)
 
     def _editor_document_base(request: Request) -> str:
         base = get_public_site_url()
@@ -223,322 +226,6 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             return f"{base.rstrip('/')}/"
         u = str(request.base_url).rstrip("/")
         return f"{u}/"
-
-    @router.get("/admin/new", response_class=HTMLResponse)
-    @role_required("admin", "editor", "author")
-    async def admin_new(request: Request, db: Session = Depends(get_db)):
-        categories = list_categories(db)
-        locales = get_available_locales()
-
-        return render_template(
-            templates,
-            request=request,
-            name="admin/editor.html",
-            context={
-                "title": "Post nou",
-                "post": None,
-                "categories": categories,
-                "locales": locales,
-                "post_translations": {},
-                "editor_document_base": _editor_document_base(request),
-                "editor_nav_fixed": False,
-                "editor_nav_fixed_label": "",
-                "editor_nav_location": "navbar",
-            },
-        )
-
-    @router.get("/admin/edit/{slug}", response_class=HTMLResponse)
-    @role_required("admin", "editor", "author")
-    async def admin_edit(request: Request, slug: str, db: Session = Depends(get_db)):
-        post = get_post(db, slug)
-        user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
-        if post and user and user.role == "author" and getattr(post, "author_id", None) != user.id:
-            return RedirectResponse(url="/admin?error=access_denied", status_code=302)
-        if not post:
-            return RedirectResponse(url="/admin/new", status_code=302)
-        categories = list_categories(db)
-        locales = get_available_locales()
-        post_trans = {}
-
-        with SessionLocal() as db_sess:
-            stmt = select(PostModel).where(PostModel.slug == slug)
-            row = db_sess.execute(stmt).scalars().first()
-            if row:
-                from app.core.posts_db import get_post_translations
-                post_trans = get_post_translations(db_sess, row.id)
-
-        editor_nav_fixed = False
-        editor_nav_fixed_label = ""
-        editor_nav_location = "navbar"
-        from app.core.config import _get_static_nav_items_raw
-        for item in _get_static_nav_items_raw():
-            if item.get("slug") == post.slug:
-                editor_nav_fixed = True
-                editor_nav_fixed_label = item.get("label", "")
-                editor_nav_location = item.get("location", "navbar")
-                break
-        return render_template(
-            templates,
-            request=request,
-            name="admin/editor.html",
-            context={
-                "title": f"Editează: {post.title}",
-                "post": post,
-                "categories": categories,
-                "locales": locales,
-                "post_translations": post_trans,
-                "editor_document_base": _editor_document_base(request),
-                "editor_nav_fixed": editor_nav_fixed,
-                "editor_nav_fixed_label": editor_nav_fixed_label,
-                "editor_nav_location": editor_nav_location,
-            },
-        )
-
-    @router.post("/admin/save")
-    @role_required("admin", "editor", "author")
-    async def admin_save(request: Request, db: Session = Depends(get_db)):
-        form = await request.form()
-
-        def _txt(key: str) -> str:
-            v = form.get(key)
-            if v is None:
-                return ""
-            if isinstance(v, str):
-                return v.strip()
-            if isinstance(v, (bytes, bytearray)):
-                return bytes(v).decode("utf-8", errors="replace").strip()
-            return ""
-
-        def _chk(key: str) -> bool:
-            v = form.get(key)
-            if v is None:
-                return False
-            if isinstance(v, str):
-                return v.lower() in ("1", "true", "on", "yes")
-            return bool(v)
-
-        title = _txt("title")
-        slug_in = _txt("slug")
-        excerpt = _txt("excerpt")
-        category = _txt("category")
-        hero_image_url = _txt("hero_image_url")
-        content_html = _txt("content_html")
-        draft = _chk("draft")
-        published_at_raw = _txt("published_at")
-        meta_keywords = _txt("meta_keywords")
-        editing_original_slug = _txt("editing_original_slug")
-        nav_fixed = _chk("nav_fixed")
-        nav_fixed_label = _txt("nav_fixed_label") or None
-        nav_location = _txt("nav_location") or "navbar"
-        if nav_location not in ("navbar", "footer", "both"):
-            nav_location = "navbar"
-
-        locales = get_available_locales()
-        translations_to_save = {}
-        for loc in locales:
-            code_loc = loc["code"]
-            t_title = _txt(f"title_{code_loc}")
-            t_excerpt = _txt(f"excerpt_{code_loc}")
-            t_content = _txt(f"content_html_{code_loc}")
-            t_keywords = _txt(f"meta_keywords_{code_loc}")
-            if t_title or t_content or t_excerpt or t_keywords:
-                translations_to_save[code_loc] = {
-                    "title": t_title or "",
-                    "excerpt": t_excerpt or "",
-                    "content_html": t_content or "",
-                    "meta_keywords": t_keywords or "",
-                }
-
-        primary_title = title
-        if not primary_title and translations_to_save:
-            first_code = list(translations_to_save.keys())[0]
-            primary_title = translations_to_save[first_code]["title"]
-
-        primary_excerpt = excerpt
-        if not primary_excerpt and translations_to_save:
-            first_code = list(translations_to_save.keys())[0]
-            primary_excerpt = translations_to_save[first_code]["excerpt"]
-
-        primary_content = content_html
-        if not primary_content and translations_to_save:
-            first_code = list(translations_to_save.keys())[0]
-            primary_content = translations_to_save[first_code]["content_html"]
-
-        primary_keywords = meta_keywords
-        if not primary_keywords and translations_to_save:
-            first_code = list(translations_to_save.keys())[0]
-            primary_keywords = translations_to_save[first_code].get("meta_keywords", "")
-
-        slug_final = slugify(slug_in or primary_title)
-        dt = None
-        if published_at_raw:
-            try:
-                dt = datetime.fromisoformat(published_at_raw)
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-            except ValueError:
-                dt = None
-
-        user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
-        author_id = user.id if user else (getattr(request.state, "user_id", None) or 1)
-
-        post = save_post(
-            db,
-            author_id=author_id,
-            slug=slug_final,
-            original_slug=editing_original_slug,
-            title=primary_title or "Post",
-            excerpt=primary_excerpt,
-            category=category or None,
-            hero_image_url=hero_image_url or None,
-            content_html=primary_content,
-            draft=draft,
-            meta_keywords=primary_keywords,
-            published_at=dt,
-        )
-
-        if translations_to_save:
-            from sqlalchemy import select
-            from app.plugins.vlahx_blog.models import Post as PostModel
-            from app.core.posts_db import save_post_translations
-            row = db.execute(select(PostModel).where(PostModel.slug == post.slug)).scalars().first()
-            if row:
-                save_post_translations(db, row.id, translations_to_save)
-
-        cur_links = read_settings().get("STATIC_NAV_LINKS") or []
-        if not isinstance(cur_links, list):
-            cur_links = []
-        cleaned_links = []
-        for item in cur_links:
-            if isinstance(item, dict):
-                slug = str(item.get("slug") or item.get("value") or "").strip()
-                if slug:
-                    cleaned_links.append({
-                        "slug": slug,
-                        "label": str(item.get("label") or item.get("fixed_label") or slug).strip(),
-                        "fixed_label": str(item.get("fixed_label") or item.get("label") or slug).strip(),
-                        "labels": item.get("labels") if isinstance(item.get("labels"), dict) else {},
-                        "url": str(item.get("url") or item.get("href") or f"/{slug}").strip(),
-                        "target": str(item.get("target") or "_self").strip(),
-                        "location": str(item.get("location") or "navbar").strip().lower(),
-                    })
-
-        target_slugs = {s.strip() for s in (editing_original_slug, post.slug) if s and s.strip()}
-        if nav_fixed:
-            derived_label = post.title or slug_final
-            existing_match = next((it for it in cur_links if isinstance(it, dict) and str(it.get("slug") or "").strip() in target_slugs), {})
-            existing_labels = existing_match.get("labels") if isinstance(existing_match.get("labels"), dict) else {}
-            new_item = {
-                "slug": post.slug,
-                "label": derived_label,
-                "fixed_label": derived_label,
-                "labels": existing_labels,
-                "url": post_public_path(post.slug),
-                "target": "_self",
-                "location": nav_location,
-            }
-            filtered = [item for item in cleaned_links if str(item.get("slug") or "").strip() not in target_slugs]
-            filtered.append(new_item)
-            write_settings({"STATIC_NAV_LINKS": filtered})
-        else:
-            if target_slugs:
-                filtered = [
-                    item for item in cleaned_links
-                    if str(item.get("slug") or "").strip() not in target_slugs
-                ]
-                write_settings({"STATIC_NAV_LINKS": filtered})
-
-        from app.core.config import invalidate_nav_fixed_post_links_cache
-        invalidate_nav_fixed_post_links_cache()
-
-
-
-        return RedirectResponse(url="/admin?msg=Postare+salvată+cu+succes!", status_code=303)
-
-    @router.get("/admin/categories", response_class=HTMLResponse)
-    @router.get("/admin/categories/", response_class=HTMLResponse)
-    @role_required("admin", "editor")
-    async def admin_categories(request: Request, db: Session = Depends(get_db)):
-        categories = list_categories(db)
-        return render_template(
-            templates,
-            request=request,
-            name="admin/categories.html",
-            context={"title": "Categorii", "categories": categories},
-        )
-
-    @router.post("/admin/categories/save")
-    @role_required("admin", "editor")
-    async def admin_save_category(request: Request, db: Session = Depends(get_db)):
-        form = await request.form()
-
-        def _txt(key: str) -> str:
-            v = form.get(key)
-            if v is None:
-                return ""
-            if isinstance(v, str):
-                return v.strip()
-            if isinstance(v, (bytes, bytearray)):
-                return bytes(v).decode("utf-8", errors="replace").strip()
-            return ""
-
-        cat_id_raw = _txt("category_id")
-        name = _txt("name")
-        parent_ref = _txt("parent_id") or _txt("parent")
-        description = _txt("description")
-        translations_json = _txt("translations_json")
-
-        if cat_id_raw and cat_id_raw.isdigit():
-            from app.plugins.vlahx_blog.models import Category as CategoryModel
-            from app.core.posts_db import slugify, _resolve_parent_category
-            cat_obj = db.get(CategoryModel, int(cat_id_raw))
-            if cat_obj and name:
-                cat_obj.name = name
-                cat_obj.slug = slugify(name)
-                cat_obj.description = description
-                if translations_json:
-                    cat_obj.translations_json = translations_json
-                if parent_ref:
-                    p_obj = _resolve_parent_category(db, parent_ref)
-                    cat_obj.parent_id = p_obj.id if (p_obj and p_obj.id != cat_obj.id) else None
-                else:
-                    cat_obj.parent_id = None
-                db.commit()
-                db.refresh(cat_obj)
-                return RedirectResponse(url="/admin/categories", status_code=303)
-
-        if name:
-            try:
-                create_category(
-                    db,
-                    name=name,
-                    parent_slug=parent_ref or None,
-                    description=description,
-                    translations_json=translations_json or "{}"
-                )
-            except ValueError:
-                pass
-        return RedirectResponse(url="/admin/categories", status_code=303)
-
-    @router.post("/admin/categories/delete")
-    @role_required("admin", "editor")
-    async def admin_delete_category(request: Request, db: Session = Depends(get_db)):
-        form = await request.form()
-
-        def _txt(key: str) -> str:
-            v = form.get(key)
-            if v is None:
-                return ""
-            if isinstance(v, str):
-                return v.strip()
-            if isinstance(v, (bytes, bytearray)):
-                return bytes(v).decode("utf-8", errors="replace").strip()
-            return ""
-
-        raw = _txt("category_id")
-        if raw.isdigit():
-            delete_category_by_id(db, int(raw))
-        return RedirectResponse(url="/admin/categories", status_code=303)
 
     @router.get("/admin/settings", response_class=HTMLResponse)
     @router.get("/admin/settings/", response_class=HTMLResponse)
@@ -549,15 +236,21 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         active_locales = [loc for loc in get_available_locales() if loc.get("enabled")]
         with SessionLocal() as db:
             app_settings = {row.key: row.value for row in db.query(AppSetting).all() if row and row.key}
-            all_posts = db.query(PostModel).filter(PostModel.draft == False).order_by(PostModel.title.asc()).all()
-            static_pages = [
-                {"id": p.id, "slug": p.slug, "title": p.title}
-                for p in all_posts
-                if p.slug and (
-                    is_static_page_slug(p.slug)
-                    or (p.category and p.category.lower() in ("pages", "pagini", "pagină", "page", "static"))
-                )
-            ]
+            static_pages = []
+            try:
+                from app.plugins.vlahx_blog.models import Post as PostModel
+                all_posts = db.query(PostModel).filter(PostModel.draft == False).order_by(PostModel.title.asc()).all()
+                static_pages = [
+                    {"id": p.id, "slug": p.slug, "title": p.title}
+                    for p in all_posts
+                    if p.slug and (
+                        is_static_page_slug(p.slug)
+                        or (getattr(p, 'category', None) and str(p.category).lower() in ("pages", "pagini", "pagină", "page", "static"))
+                    )
+                ]
+            except Exception as e:
+                logger.debug("PostModel not loaded: %s", e)
+                static_pages = []
         localized_site_names = {
             loc["code"]: (app_settings.get(f"SITE_DISPLAY_NAME_{loc['code']}") or "").strip()
             for loc in active_locales
@@ -687,7 +380,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
     async def admin_set_default_locale(request: Request, locale_code: str = Form(...)):
         from app.core.i18n import set_default_locale
         set_default_locale(locale_code)
-        return RedirectResponse(url=f"/admin/translations?locale={locale_code}&msg=Limba+implicită+a+fost+schimbată!", status_code=303)
+        return RedirectResponse(url=f"/admin/translations?locale={locale_code}&msg=Default+language+updated+successfully!", status_code=303)
 
     @router.post("/admin/translations/add-locale")
     @role_required("admin")
@@ -1209,7 +902,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
     @router.get("/admin/repo/store", response_class=HTMLResponse)
     @role_required("admin")
     async def admin_repo_store_page(request: Request, message: str | None = None, error: str | None = None):
-        from app.core.config import get_repo_api_url, VLAH_CORE_VERSION
+        from app.core.config import get_repo_api_url, VLAHX_CORE_VERSION
         from app.core.plugin_package import list_installed_plugins
         from app.core.themes import list_installed_themes
         import urllib.request
@@ -1221,8 +914,8 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             req = urllib.request.Request(
                 repo_url,
                 headers={
-                    "User-Agent": f"VlahX-Core/{VLAH_CORE_VERSION}",
-                    "X-VlahX-Version": VLAH_CORE_VERSION,
+                    "User-Agent": f"VlahX-Core/{VLAHX_CORE_VERSION}",
+                    "X-VlahX-Version": VLAHX_CORE_VERSION,
                 },
             )
             with urllib.request.urlopen(req, timeout=5) as resp:
@@ -1251,7 +944,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 "installed_p_ids": installed_p_ids,
                 "installed_t_slugs": installed_t_slugs,
                 "repo_url": repo_url,
-                "core_version": VLAH_CORE_VERSION,
+                "core_version": VLAHX_CORE_VERSION,
                 "message": msg,
                 "error": err,
             },
@@ -1284,7 +977,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 name="admin/plugins.html",
                 context=_plugins_page_ctx(
                     list_installed_plugins(),
-                    error="Fișier gol.",
+                    error="Empty file.",
                 ),
                 status_code=400,
             )
@@ -1304,7 +997,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 name="admin/plugins.html",
                 context=_plugins_page_ctx(
                     list_installed_plugins(),
-                    error=f"Eroare: {str(e)}",
+                    error=f"Error: {str(e)}",
                 ),
                 status_code=400,
             )
@@ -1450,7 +1143,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 name="admin/plugins.html",
                 context=_plugins_page_ctx(
                     list_installed_plugins(),
-                    error=f"Eroare la ștergere: {str(e)}",
+                    error=f"Error deleting: {str(e)}",
                 ),
                 status_code=500,
             )
@@ -1480,7 +1173,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 name="admin/plugins.html",
                 context=_plugins_page_ctx(
                     list_installed_plugins(),
-                    error="Restart din Admin nu e activat. Setează ADMIN_ENABLE_CONTAINER_RESTART=true în .env și repornește manual containerul o dată ca să ia variabila.",
+                    error="Container restart from Admin is disabled. Set ADMIN_ENABLE_CONTAINER_RESTART=true in .env.",
                 ),
                 status_code=403,
             )
@@ -1491,7 +1184,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             name="admin/plugins.html",
             context=_plugins_page_ctx(
                 list_installed_plugins(),
-                message="Se trimite oprirea procesului; cu Docker (restart: unless-stopped) containerul ar trebui să revină în câteva secunde. Reîncarcă apoi această pagină.",
+                message="Sending process shutdown signal. The container will restart in a few seconds.",
             ),
         )
 
@@ -1561,7 +1254,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 labels_dict = {}
                 for loc_obj in active_locales:
                     code = loc_obj["code"]
-                    list_vals = form.getlist(f"nav_label_{code}")
+                    list_vals = form.getlist(f"nav_label_{code}") or form.getlist(f"nav_label_{code}[]")
                     val = str(list_vals[i] if i < len(list_vals) else "").strip()
                     if val:
                         labels_dict[code] = val
@@ -1614,10 +1307,10 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                     "POST_IMAGE_CROP_OG": _txt("post_image_crop_og") == "1",
                 }
             )
-            return RedirectResponse(url="/admin/settings?msg=Set%C4%83rile+au+fost+salvate+cu+succes%21", status_code=303)
+            return RedirectResponse(url="/admin/settings?msg=Settings+saved+successfully%21", status_code=303)
         except Exception as e:
             logger.error("Error saving admin settings: %s", e, exc_info=True)
-            return RedirectResponse(url="/admin/settings?err=A+intervenit+o+eroare+la+salvarea+set%C4%83rilor.", status_code=303)
+            return RedirectResponse(url="/admin/settings?err=An+error+occurred+while+saving+settings.", status_code=303)
 
     @router.post("/admin/settings/upload-image")
     @role_required("admin")
@@ -1716,30 +1409,5 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 {"error": f"Eroare la upload: {str(e)}"},
                 status_code=500,
             )
-
-    @router.get("/admin/post/{slug}/delete")
-    @role_required("admin")
-    async def delete_my_post(
-        request: Request, slug: str, db: Session = Depends(get_db)
-    ):
-        success = delete_post(db, slug)
-        if success:
-            cur_links = read_settings().get("STATIC_NAV_LINKS") or []
-            if isinstance(cur_links, list):
-                filtered = [
-                    item for item in cur_links
-                    if isinstance(item, dict) and str(item.get("slug") or "").strip() != slug
-                ]
-                if filtered:
-                    write_settings({"STATIC_NAV_LINKS": filtered})
-                else:
-                    write_settings({"STATIC_NAV_LINKS": []})
-            else:
-                write_settings({"STATIC_NAV_LINKS": []})
-            return RedirectResponse(url="/admin", status_code=303)
-        return JSONResponse(
-            {"error": "Nu am putut șterge postarea!"},
-            status_code=404,
-        )
 
     return router

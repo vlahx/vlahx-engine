@@ -5,7 +5,7 @@
   <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3 mb-4">
     <div>
       <h1 class="h3 mb-1">{{ t("admin.translations.title") }}</h1>
-      <p class="text-secondary mb-0">{{ t("admin.translations.subtitle") }}</p>
+      <p class="text-body-secondary mb-0">{{ t("admin.translations.subtitle") }}</p>
     </div>
   </div>
 
@@ -33,7 +33,7 @@
           {% if not locale.is_default %}
           <form method="post" action="/admin/translations/set-default" class="d-inline mb-0 ms-1">
             <input type="hidden" name="locale_code" value="{{ locale.code }}" />
-            <button type="submit" class="btn btn-sm btn-outline-warning text-dark py-0 px-2 fw-semibold" title="{{ t('admin.translations.setDefault') }}">⭐ {{ t('admin.translations.setDefault') }}</button>
+            <button type="submit" class="btn btn-sm btn-outline-warning text-body py-0 px-2 fw-semibold" title="{{ t('admin.translations.setDefault') }}">⭐ {{ t('admin.translations.setDefault') }}</button>
           </form>
           <form method="post" action="/admin/translations/delete-locale" class="d-inline mb-0 ms-2" onsubmit="return confirm('Ștergi limba {{ locale.code }}? Toate traducerile pentru această limbă vor fi șterse.');">
             <input type="hidden" name="locale_code" value="{{ locale.code }}" />
@@ -46,13 +46,34 @@
     </div>
   </div>
 
+    <!-- ADAUGĂ CHEIE NOUĂ DE TRADUCERE -->
+  <div class="card card-modern mb-4">
+    <div class="card-body">
+      <h2 class="h5 mb-3">➕ {{ t("admin.translations.addKeyHeader") if t else 'Add New Translation Key' }}</h2>
+      <form method="post" action="/admin/translations/save" class="row g-3 align-items-end">
+        <input type="hidden" name="locale_code" value="{{ selected_locale }}" />
+        <div class="col-md-5">
+          <label class="form-label fw-bold">Translation Key Name</label>
+          <input class="form-control" name="translation_key" placeholder="ex: admin.nav.analytics or profile.newFeature" required />
+        </div>
+        <div class="col-md-5">
+          <label class="form-label fw-bold">Text Value ({{ selected_locale|upper }})</label>
+          <input class="form-control" name="translation_value" placeholder="ex: Analytics & Reports" required />
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-success w-100 fw-bold" type="submit">➕ {{ t("admin.actions.add") if t else 'Add Key' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- SELECȚIE LIMBĂ & SĂRITURI LA SECȚIUNI -->
   <div class="card card-modern mb-4">
     <div class="card-body">
       <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
         <div>
           <h2 class="h5 mb-1">{{ t("admin.translations.translationsHeader") }}</h2>
-          <p class="text-secondary mb-0">{{ t("admin.translations.tableHelp") }}</p>
+          <p class="text-body-secondary mb-0">{{ t("admin.translations.tableHelp") }}</p>
         </div>
         <form method="get" action="/admin/translations" class="d-flex gap-2 align-items-end">
           <div>
@@ -69,7 +90,7 @@
 
       {% if grouped_sections %}
       <div class="mt-4 pt-3 border-top">
-        <label class="form-label small fw-bold text-uppercase text-secondary mb-2">📌 Sari rapid la secțiunea:</label>
+        <label class="form-label small fw-bold text-uppercase text-body-secondary mb-2">📌 {{ t("admin.translations.jumpToSection") if t else "Jump to section:" }}</label>
         <div class="d-flex flex-wrap gap-2">
           {% for sec_name, items in grouped_sections.items() %}
           <a href="#sec-{{ loop.index }}" class="btn btn-sm btn-outline-primary rounded-pill fw-semibold py-1 px-3">
@@ -91,22 +112,22 @@
       <div class="card card-modern mb-4" id="sec-{{ loop.index }}">
         <div class="card-header bg-body-tertiary border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
           <h3 class="h5 mb-0 fw-bold">{{ sec_name }}</h3>
-          <span class="badge bg-secondary rounded-pill px-3 py-2 fw-semibold">{{ items|length }} chei</span>
+          <span class="badge bg-secondary rounded-pill px-3 py-2 fw-semibold">{{ items|length }} {{ t("admin.translations.keysCount") if t else "keys" }}</span>
         </div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table align-middle mb-0">
               <thead class="table-light">
                 <tr>
-                  <th style="width: 45%;" class="ps-4">English (Source)</th>
-                  <th style="width: 55%;" class="pe-4">{{ selected_locale|upper }} (Translation)</th>
+                  <th style="width: 45%;" class="ps-4">{{ t("admin.translations.sourceColumn") if t else "English (Source)" }}</th>
+                  <th style="width: 55%;" class="pe-4">{{ selected_locale|upper }} ({{ t("admin.translations.targetColumn") if t else "Translation" }})</th>
                 </tr>
               </thead>
               <tbody>
                 {% for item in items %}
                 <tr>
                   <td class="ps-4">
-                    <div class="fw-semibold small text-muted font-monospace">{{ item.key }}</div>
+                    <div class="fw-semibold small text-body-secondary font-monospace">{{ item.key }}</div>
                     <div class="mt-1 text-body">{{ item.source_value }}</div>
                   </td>
                   <td class="pe-4 py-3">
@@ -122,7 +143,7 @@
       {% endfor %}
 
       <div class="sticky-bottom bg-body border-top shadow-lg p-3 rounded-3 mb-4 d-flex justify-content-between align-items-center">
-        <span class="fw-semibold text-secondary">Ai modificat traduceri? Nu uita să salvezi!</span>
+        <span class="fw-semibold text-body-secondary">{{ t("admin.translations.saveHint") if t else "Modified translations? Remember to save!" }}</span>
         <button class="btn btn-success btn-lg px-4 fw-bold shadow-sm" type="submit">💾 {{ t("admin.translations.saveAll") }}</button>
       </div>
     {% else %}

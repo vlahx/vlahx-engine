@@ -6,7 +6,7 @@
     <div class="col-md-6 col-lg-5">
       <div class="text-center mb-4">
         <h1 class="fw-extrabold h2 mb-2 text-body">{{ t('auth.loginTitle') }}</h1>
-        <p class="text-secondary small">{{ t('auth.loginSubtitle') }}</p>
+        <p class="text-body-secondary small">{{ t('auth.loginSubtitle') }}</p>
       </div>
 
       {% if msg %}
@@ -27,11 +27,11 @@
         <!-- Classic Email + Password Login Form -->
         <form action="/login" method="POST" class="mb-4 text-start">
           <div class="mb-3">
-            <label class="form-label small fw-semibold text-secondary">{{ t('auth.email') }}</label>
+            <label class="form-label small fw-semibold text-body-secondary">{{ t('auth.email') }}</label>
             <input type="email" name="email" class="form-control rounded-3" placeholder="ex: alex@vlahx.org" required>
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold text-secondary">{{ t('auth.password') }}</label>
+            <label class="form-label small fw-semibold text-body-secondary">{{ t('auth.password') }}</label>
             <input type="password" name="password" class="form-control rounded-3" placeholder="••••••••" required>
           </div>
 
@@ -51,13 +51,13 @@
 
         <div class="d-flex align-items-center my-4">
           <hr class="flex-grow-1 border-secondary-subtle">
-          <span class="px-3 text-secondary small fw-semibold text-uppercase">{{ t('auth.orQuickLogin') if t else 'SAU CONECTARE RAPIDĂ' }}</span>
+          <span class="px-3 text-body-secondary small fw-semibold text-uppercase">{{ t('auth.orQuickLogin') if t else 'SAU CONECTARE RAPIDĂ' }}</span>
           <hr class="flex-grow-1 border-secondary-subtle">
         </div>
 
         <!-- Telegram OAuth Login Widget -->
         <div class="mb-4 text-center">
-          <p class="text-secondary small fw-semibold mb-2">{{ t('auth.telegramLogin') if t else '📲 Conectare cu Telegram:' }}</p>
+          <p class="text-body-secondary small fw-semibold mb-2">{{ t('auth.telegramLogin') if t else '📲 Conectare cu Telegram:' }}</p>
           {% if bot_username %}
           <div class="d-flex justify-content-center">
             <script async src="https://telegram.org/js/telegram-widget.js?15"
@@ -76,7 +76,7 @@
         </div>
 
         <div class="mt-4 pt-3 border-top text-center">
-          <p class="mb-0 text-secondary small">{{ t('auth.noAccount') }} 
+          <p class="mb-0 text-body-secondary small">{{ t('auth.noAccount') }} 
             <a href="/register" class="fw-bold text-primary text-decoration-none ms-1">{{ t('auth.registerLink') }}</a>
           </p>
         </div>

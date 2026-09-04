@@ -1,0 +1,190 @@
+{% extends "admin/admin_base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4 px-3 px-md-4">
+  <!-- Page Header -->
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h1 class="h3 mb-1 fw-bold text-body">📝 {{ t_plugin('vlahx_blog', 'admin_posts', 'Articles & Blog') }}</h1>
+      <p class="text-body-secondary small mb-0">{{ t_plugin('vlahx_blog', 'admin_posts_desc', 'Manage blog posts, categories and publishing settings') }}</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="/admin/categories" class="btn btn-outline-info rounded-pill px-3 fw-semibold shadow-sm">
+        🏷️ {{ t_plugin('vlahx_blog', 'admin_categories', 'Blog Categories') }}
+      </a>
+      <a href="/admin/posts/new" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+        ➕ {{ t_plugin('vlahx_blog', 'new_article', 'New Article') }}
+      </a>
+    </div>
+  </div>
+
+  {% if request.query_params.get("saved") == "1" %}
+  <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4 bg-success-subtle text-success border border-success-subtle" role="alert">
+    <i class="bi bi-check-circle-fill me-2"></i>
+    {{ t_plugin('vlahx_blog', 'settings_saved_msg', 'Blog settings saved successfully!') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endif %}
+
+  <!-- Nav Tabs Navigation -->
+  <ul class="nav nav-tabs nav-tabs-modern mb-4 border-bottom" id="blogAdminTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-bold active px-4 py-3" id="main-tab" data-bs-target="#tab-main" type="button" role="tab" onclick="switchBlogTab('main')">
+        📝 {{ t_plugin('vlahx_blog', 'tab_posts', 'Articles List') }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-bold px-4 py-3" id="settings-tab" data-bs-target="#tab-settings" type="button" role="tab" onclick="switchBlogTab('settings')">
+        ⚙️ {{ t_plugin('vlahx_blog', 'tab_settings', 'Blog Settings') }}
+      </button>
+    </li>
+    {% if plugin_locales %}
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-bold px-4 py-3" id="i18n-tab" data-bs-target="#tab-i18n" type="button" role="tab" onclick="switchBlogTab('i18n')">
+        🌐 {{ t('admin.pluginSettings.tabI18n', 'i18n Translations') }}
+      </button>
+    </li>
+    {% endif %}
+  </ul>
+
+  <!-- Tab Content -->
+  <div class="tab-content" id="blogAdminTabContent">
+    <!-- TAB 1: Posts List -->
+    <div class="tab-pane show active" id="tab-main" role="tabpanel" aria-labelledby="main-tab">
+      <div class="card bg-body-tertiary border-0 rounded-4 shadow-sm">
+        <div class="card-body p-0">
+          {% if posts %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light text-secondary small text-uppercase">
+                <tr>
+                  <th class="ps-4">Titlu / Slug</th>
+                  <th>Categorie</th>
+                  <th>Autor</th>
+                  <th>Status</th>
+                  <th>Data Publicării</th>
+                  <th class="pe-4 text-end">Acțiuni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for post in posts %}
+                <tr>
+                  <td class="ps-4">
+                    <div class="fw-bold text-body">{{ post.title }}</div>
+                    <div class="small text-secondary">/{{ post.slug }}</div>
+                  </td>
+                  <td>
+                    {% if post.category %}
+                      <span class="badge bg-secondary bg-opacity-25 text-body border">{{ post.category }}</span>
+                    {% else %}
+                      <span class="text-secondary small">—</span>
+                    {% endif %}
+                  </td>
+                  <td><span class="small text-body">{{ post.author.username if post.author else 'Admin' }}</span></td>
+                  <td>
+                    {% if not post.draft %}
+                      <span class="badge bg-success rounded-pill px-3 py-1">Publicat</span>
+                    {% else %}
+                      <span class="badge bg-warning text-dark rounded-pill px-3 py-1">Ciornă</span>
+                    {% endif %}
+                  </td>
+                  <td><span class="small text-secondary">{{ post.created_at.strftime('%Y-%m-%d %H:%M') if post.created_at else '—' }}</span></td>
+                  <td class="pe-4 text-end">
+                    <a href="/admin/posts/edit/{{ post.id }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 me-1">✏️ Edit</a>
+                    <form action="/admin/posts/delete/{{ post.id }}" method="post" class="d-inline" onsubmit="return confirm('Sigur doriți să ștergeți acest articol?')">
+                      <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">🗑️ Șterge</button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="p-5 text-center text-secondary">
+            <div class="fs-1 mb-2">📝</div>
+            <p class="mb-0">Nu există articole publicate încă.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: Blog Settings -->
+    <div class="tab-pane" id="tab-settings" role="tabpanel" aria-labelledby="settings-tab">
+      <div class="card card-modern bg-body-tertiary border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-body-secondary border-bottom py-3 px-4">
+          <h5 class="mb-0 fw-bold text-body">⚙️ {{ t('admin.settings.articleUrls', 'Article URL Structure') }}</h5>
+        </div>
+        <div class="card-body p-4">
+          <form method="post" action="/admin/plugins/vlahx_blog/settings/save">
+            <div class="row g-3 align-items-center mb-4">
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold text-body">{{ t('admin.settings.publicArticlePath', 'Public Article Path Format') }}</label>
+                <select class="form-select text-body bg-body border rounded-3" name="flat_post_urls">
+                  <option value="0" {% if not flat_post_urls %}selected{% endif %}>{{ t('admin.settings.pathClassic', 'Classic (/blog/slug)') }}</option>
+                  <option value="1" {% if flat_post_urls %}selected{% endif %}>{{ t('admin.settings.pathShort', 'Short (/slug)') }}</option>
+                </select>
+                <div class="form-text text-body-secondary small mt-2">
+                  {{ t('admin.settings.publicArticlePathHelp', 'Configure how posts are publicly accessed (e.g. /blog/post-title or short /post-title).') }}
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary fw-bold px-4 py-2.5 rounded-3 shadow-sm">
+              💾 {{ t('admin.pluginSettings.saveConfigBtn', 'Save Blog Settings') }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: i18n Translations Partial -->
+    {% include "admin/partials/plugin_settings_tabs_content.html" %}
+
+  </div>
+</div>
+
+<script>
+function switchBlogTab(targetId) {
+  const tabBtns = document.querySelectorAll('#blogAdminTabs button');
+  tabBtns.forEach(btn => {
+    const isTarget = (btn.getAttribute('data-bs-target') === '#tab-' + targetId || btn.id === targetId + '-tab');
+    if (isTarget) {
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+    } else {
+      btn.classList.remove('active');
+      btn.setAttribute('aria-selected', 'false');
+    }
+  });
+
+  const tabPanes = document.querySelectorAll('#blogAdminTabContent .tab-pane');
+  tabPanes.forEach(pane => {
+    const isTarget = (pane.id === 'tab-' + targetId);
+    if (isTarget) {
+      pane.classList.add('show', 'active');
+      pane.style.display = 'block';
+    } else {
+      pane.classList.remove('show', 'active');
+      pane.style.display = 'none';
+    }
+  });
+
+  try {
+    if (history.replaceState) {
+      history.replaceState(null, null, '#' + targetId);
+    } else {
+      window.location.hash = targetId;
+    }
+  } catch (e) {}
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  const hash = window.location.hash.replace('#', '');
+  if (hash && ['main', 'settings', 'i18n'].includes(hash)) {
+    switchBlogTab(hash);
+  }
+});
+</script>
+{% endblock %}

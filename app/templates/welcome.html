@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="py-5">
+  <div class="container py-5 text-center">
+    <div class="d-inline-flex align-items-center gap-2 px-3 py-1 mb-3 rounded-pill bg-primary bg-opacity-10 text-primary fw-semibold small border border-primary border-opacity-25">
+      <span class="spinner-grow spinner-grow-sm text-primary" role="status"></span>
+      <span>VlahX Core Engine</span>
+    </div>
+    <h1 class="display-4 fw-bold text-body mb-3">{{ site_display_name() }}</h1>
+    <p class="lead text-body-secondary mx-auto mb-4" style="max-width: 680px;">
+      {{ site_tagline() }}
+    </p>
+
+    <!-- Homepage Notice Card -->
+    <div class="card card-modern mx-auto shadow-sm border mb-4" style="max-width: 600px;">
+      <div class="card-body p-4 text-center">
+        <div class="fs-1 mb-2">📌</div>
+        <h2 class="h5 fw-bold mb-2">Nothing yet as home page</h2>
+        <p class="text-body-secondary small mb-0">
+          Welcome to <strong>{{ site_display_name() }}</strong>! The platform is active. Use the top navigation menu to explore content or log in to customize your site.
+        </p>
+      </div>
+    </div>
+
+    {% if request.state.current_user and 'admin' in request.state.current_user.roles %}
+    <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+      <a href="/admin/settings" class="btn btn-primary btn-lg px-4 fw-bold shadow-sm d-inline-flex align-items-center gap-2">
+        <span>⚙️</span>
+        <span>Admin Settings</span>
+      </a>
+      <a href="/admin/repo" class="btn btn-outline-secondary btn-lg px-4 fw-bold shadow-sm d-inline-flex align-items-center gap-2">
+        <span>🏪</span>
+        <span>Repo Extension Store</span>
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

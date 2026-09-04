@@ -9,7 +9,7 @@
 {% block content %}
 <div class="container px-3 px-md-4 px-lg-5 py-4 py-md-5">
   <article class="row justify-content-center">
-    <div class="col-lg-9 col-xl-8">
+    <div class="col-lg-10 col-xl-9">
     
     <!-- Category & Metadata Header -->
     <div class="mb-3 d-flex flex-wrap align-items-center gap-2">
@@ -26,7 +26,7 @@
         {{ post_header_meta_html | safe }}
       {% endif %}
       {% if post.draft %}
-        <span class="badge text-bg-warning">Draft</span>
+        <span class="badge text-bg-warning">{{ t_plugin("vlahx_blog", "badge_draft", "Draft") }}</span>
       {% endif %}
     </div>
 
@@ -83,7 +83,7 @@
 
     <!-- Plugin Area Footer (where Share & Comments Plugins Render) -->
     {% if post_article_footer_html %}
-    <div class="mt-5 pt-3">
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-5 bg-body-tertiary">
       {{ post_article_footer_html | safe }}
     </div>
     {% endif %}

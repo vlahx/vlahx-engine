@@ -4,7 +4,7 @@
 <section class="admin-editor-page py-3 py-md-4 px-2 px-sm-3">
   <div class="mb-3 mb-md-4">
     <h1 class="fs-5 fs-md-3 fw-bold mb-0">{{ t("admin.editor.editTitle") if post else t("admin.editor.newTitle") }}</h1>
-    <p class="text-secondary mb-0 d-none d-md-block">{{ t("admin.editor.subtitle") }}</p>
+    <p class="text-body-secondary mb-0 d-none d-md-block">{{ t("admin.editor.subtitle") }}</p>
   </div>
 
   <form method="post" action="/admin/save" enctype="multipart/form-data" onsubmit="return beforeSubmit();">
@@ -21,7 +21,7 @@
       </div>
       <div class="col-md-6">
         <label class="form-label fw-semibold">{{ t("admin.editor.categoryLabel") }}</label>
-        <input class="form-control" type="text" name="category" list="categories-list" value="{{ post.category if post else '' }}" placeholder="Ex: General, Tehnic" />
+        <input class="form-control" type="text" name="category" list="categories-list" value="{{ (post.category if (post and post.category and post.category != 'None') else '') }}" placeholder="Ex: General, Tehnic" />
         <datalist id="categories-list">
           {% for category in categories %}
             <option value="{{ category.name }}"></option>
@@ -43,10 +43,10 @@
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-2">
           <div class="form-check form-switch mb-0">
             <input class="form-check-input" type="checkbox" name="nav_fixed" value="true" id="nav_fixed_check" {% if editor_nav_fixed %}checked{% endif %}>
-            <label class="form-check-label fw-bold text-dark" for="nav_fixed_check">📌 {{ t("admin.editor.staticPageHeader") }}</label>
+            <label class="form-check-label fw-bold text-body" for="nav_fixed_check">📌 {{ t("admin.editor.staticPageHeader") }}</label>
           </div>
           <div class="d-flex align-items-center gap-2">
-            <label class="form-label small fw-semibold text-dark mb-0 ms-md-2" for="nav_location_select">📍 Plasare link:</label>
+            <label class="form-label small fw-semibold text-body mb-0 ms-md-2" for="nav_location_select">📍 Plasare link:</label>
             <select name="nav_location" id="nav_location_select" class="form-select form-select-sm" style="width: auto;">
               <option value="navbar" {% if editor_nav_location == 'navbar' or not editor_nav_location %}selected{% endif %}>🧭 Navbar (sus)</option>
               <option value="footer" {% if editor_nav_location == 'footer' %}selected{% endif %}>🦶 Footer (subsol)</option>
@@ -54,10 +54,10 @@
             </select>
           </div>
         </div>
-        <p class="text-secondary small mb-2">{{ t("admin.editor.staticPageHelp") }}</p>
+        <p class="text-body-secondary small mb-2">{{ t("admin.editor.staticPageHelp") }}</p>
         <div class="row">
           <div class="col-md-12">
-            <div class="alert alert-light border-0 mb-0 py-2 px-0 text-secondary small">
+            <div class="alert alert-light border-0 mb-0 py-2 px-0 text-body-secondary small">
               Titlul linkului din meniu este preluat automat din titlul postării în limba activă a vizitatorului.
             </div>
             <input type="hidden" name="nav_fixed_label" value="" />
@@ -106,10 +106,20 @@
         <div class="tab-content" id="langTabsContent">
           {% for loc in locales %}
           {% set code = loc.code %}
-          {% set trans = post_translations.get(code, {}) if post_translations else {} %}
-          {% set val_title = trans.get('title') or (post.title if loop.first and post else '') %}
-          {% set val_excerpt = trans.get('excerpt') or (post.excerpt if loop.first and post else '') %}
-          {% set val_content = trans.get('content_html') or (post.content_html if loop.first and post else '') %}
+          {% set trans_dict = post_translations or translations or {} %}
+          {% set trans = trans_dict.get(code, {}) if trans_dict else {} %}
+          {% set val_title = trans.get('title', '') %}
+          {% set val_excerpt = trans.get('excerpt', '') %}
+          {% set val_content = trans.get('content_html', '') %}
+          {% if not val_title and (loc.is_default or loop.first) and post %}
+            {% set val_title = post.title or '' %}
+          {% endif %}
+          {% if not val_excerpt and (loc.is_default or loop.first) and post %}
+            {% set val_excerpt = post.excerpt or '' %}
+          {% endif %}
+          {% if not val_content and (loc.is_default or loop.first) and post %}
+            {% set val_content = post.content_html or '' %}
+          {% endif %}
 
           <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="content-{{ code }}" role="tabpanel">
             <div class="mb-3">

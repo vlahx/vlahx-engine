@@ -1,0 +1,176 @@
+<!-- TAB: Setări Modul (Configuration) -->
+<div class="tab-pane fade" id="tab-settings" role="tabpanel" aria-labelledby="settings-tab">
+    {% if metadata and metadata.settings %}
+    <div class="card card-modern bg-body-tertiary border-0 shadow-sm rounded-4 mt-0 mb-4">
+        <div class="card-header bg-body-secondary border-bottom py-3 px-4">
+            <h5 class="mb-0 fw-bold text-body">⚙️ Setări — {{ t_plugin(plugin.id if plugin else plugin_id, 'plugin_name', plugin.name if plugin else 'Plugin') }}</h5>
+        </div>
+        <div class="card-body p-4">
+            <form method="post" action="/admin/plugins/{{ plugin.id if plugin else plugin_id }}/settings#settings">
+                <div class="row g-3">
+                    {% for key, schema in metadata.settings.items() %}
+                        <div class="col-md-6 mb-3">
+                            <label for="setting_{{ key }}" class="form-label fw-bold text-body small mb-1">
+                                {{ t_plugin(plugin.id if plugin else plugin_id, 'setting_' ~ key ~ '_label', schema.label|default(schema.description)|default(key)) }}
+                                {% if schema.required %}
+                                    <span class="text-danger">*</span>
+                                {% endif %}
+                            </label>
+                            {% if schema.type == "text" or schema.type == "email" %}
+                                <input type="{{ schema.type }}" 
+                                       class="form-control form-control-lg fs-6 text-body" 
+                                       id="setting_{{ key }}" 
+                                       name="{{ key }}"
+                                       value="{{ settings.get(key, schema.default) }}"
+                                       {% if schema.required %}required{% endif %}>
+                            {% elif schema.type == "password" %}
+                                <input type="password" 
+                                       class="form-control form-control-lg fs-6 text-body" 
+                                       id="setting_{{ key }}" 
+                                       name="{{ key }}"
+                                       placeholder="{{ t('admin.pluginSettings.passwordHelp', 'Leave empty to keep current password') }}">
+                            {% elif schema.type == "number" %}
+                                <input type="number" 
+                                       class="form-control form-control-lg fs-6 text-body" 
+                                       id="setting_{{ key }}" 
+                                       name="{{ key }}"
+                                       value="{{ settings.get(key, schema.default) }}"
+                                       {% if schema.required %}required{% endif %}>
+                            {% elif schema.type == "checkbox" %}
+                                {% set _cb = settings.get(key) %}
+                                {% if _cb is none %}
+                                  {% set _cb_on = schema.default is sameas true or schema.default == 1 or schema.default == "1" %}
+                                {% else %}
+                                  {% set _cb_on = _cb == "1" or _cb is sameas true or (_cb|string|lower == "true") %}
+                                {% endif %}
+                                <div class="form-check form-switch mt-2">
+                                    <input type="checkbox" 
+                                           class="form-check-input fs-5" 
+                                           id="setting_{{ key }}" 
+                                           name="{{ key }}"
+                                           value="1"
+                                           {% if _cb_on %}checked{% endif %}>
+                                    <label class="form-check-label fw-semibold text-body ms-2" for="setting_{{ key }}">
+                                        {{ t_plugin(plugin.id if plugin else plugin_id, 'setting_' ~ key ~ '_desc', schema.description|default(schema.label)|default(key)) }}
+                                    </label>
+                                </div>
+                            {% endif %}
+                            {% if schema.description and schema.type != "checkbox" %}
+                                <div class="form-text text-body-secondary small mt-1">{{ t_plugin(plugin.id if plugin else plugin_id, 'setting_' ~ key ~ '_desc', schema.description|default(schema.label)|default(key)) }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-4 pt-3 border-top d-flex gap-2">
+                    <button type="submit" class="btn btn-primary fw-bold px-4 py-2.5 rounded-3 shadow-sm">
+                        {{ t('admin.pluginSettings.saveConfigBtn', '💾 Save All Settings') }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+    {% if plugin and plugin.id == 'newsletter' %}
+    <!-- SPECIAL SECTION: Newsletter SMTP Test Button -->
+    <div class="card card-modern bg-body-tertiary border-0 shadow-sm rounded-4 mt-0 mb-4">
+        <div class="card-header bg-body-secondary border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-body">{{ t('admin.newsletter.testSmtpTitle', '📧 Test SMTP Server Connection') }}</h5>
+        </div>
+        <div class="card-body p-4">
+            <p class="text-body-secondary small mb-3">{{ t('admin.newsletter.testSmtpDesc', 'Send a test email to verify that your SMTP server settings are working correctly.') }}</p>
+            <form method="post" action="/admin/plugins/newsletter/test-email">
+                <button type="submit" class="btn btn-outline-primary fw-bold rounded-3 px-4 py-2.5 shadow-sm">
+                    {{ t('admin.newsletter.btnTestEmail', '⚡ Send Test Email') }}
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+
+<!-- TAB: Traduceri i18n -->
+{% if plugin_locales %}
+<div class="tab-pane fade" id="tab-i18n" role="tabpanel" aria-labelledby="i18n-tab">
+    <div class="card card-modern bg-body-tertiary border-0 shadow-sm rounded-4 mt-0 mb-4">
+        <div class="card-header bg-body-secondary border-bottom py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h5 class="fw-bold text-body mb-0 d-flex align-items-center gap-2">
+                    <span>🌐</span> {{ t('admin.pluginSettings.i18nTitle', 'Traduceri i18n') }} — {{ t_plugin(plugin.id if plugin else plugin_id, 'plugin_name', plugin.name if plugin else plugin_id) }}
+                </h5>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <label class="form-label mb-0 fw-semibold text-body small">{{ t('admin.translations.selectLocale', 'Selectează limba:') }}</label>
+                <select class="form-select form-select-sm fw-bold bg-body text-body border rounded-3" id="pluginLocaleSelect" onchange="switchPluginI18nLocale(this.value)">
+                    {% for loc_code in plugin_locales.keys() %}
+                    <option value="{{ loc_code }}" {% if loc_code == (selected_plugin_locale|default('ro')) %}selected{% endif %}>
+                        {{ loc_code|upper }} {% if loc_code == default_site_locale %}(Default){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="card-body p-4">
+            {% for loc_code, loc_dict in plugin_locales.items() %}
+            {% set clean_loc_dict = loc_dict.translations if (loc_dict is mapping and 'translations' in loc_dict) else loc_dict %}
+            {% set ref_source_dict = (plugin_locales.en.translations if (plugin_locales.en is mapping and 'translations' in plugin_locales.en) else plugin_locales.en) if plugin_locales.en else ((plugin_locales.ro.translations if (plugin_locales.ro is mapping and 'translations' in plugin_locales.ro) else plugin_locales.ro) if plugin_locales.ro else clean_loc_dict) %}
+            
+            <div class="plugin-i18n-locale-pane {% if loc_code != (selected_plugin_locale|default('ro')) %}d-none{% endif %}" id="plugin-i18n-pane-{{ loc_code }}">
+                <form method="post" action="/admin/plugins/{{ plugin.id if plugin else plugin_id }}/translations#tab-i18n">
+                    <input type="hidden" name="locale_code" value="{{ loc_code }}" />
+                    
+                    <div class="table-responsive border rounded-3 bg-body mb-4">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 45%;" class="ps-4">{{ t('admin.translations.sourceColumn', 'English / Sursă') }}</th>
+                                    <th style="width: 55%;" class="pe-4">{{ loc_code|upper }} ({{ t('admin.translations.targetColumn', 'Traducere') }})</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for t_key, t_val in clean_loc_dict.items() %}
+                                {% if not t_key.startswith('_') and t_key not in ['_meta', 'translations'] %}
+                                {% set override_val = plugin_db_overrides.get(loc_code, {}).get(t_key, "") if plugin_db_overrides else "" %}
+                                {% set source_val = ref_source_dict.get(t_key, t_val) if ref_source_dict else t_val %}
+                                <tr>
+                                    <td class="ps-4 py-3">
+                                        <div class="fw-semibold small text-body-secondary font-monospace">{{ t_key }}</div>
+                                        <div class="mt-1 text-body small">{{ source_val }}</div>
+                                    </td>
+                                    <td class="pe-4 py-3">
+                                        <input type="text" 
+                                               class="form-control text-body bg-body-tertiary" 
+                                               name="trans_{{ loc_code }}_{{ t_key }}" 
+                                               value="{{ override_val if override_val else t_val }}" 
+                                               placeholder="{{ source_val }}" />
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pt-2 d-flex justify-content-between align-items-center">
+                        <span class="text-body-secondary small">{{ t('admin.translations.saveHint', 'Ai modificat traducerile? Nu uita să salvezi!') }}</span>
+                        <button type="submit" class="btn btn-success fw-bold px-4 py-2.5 rounded-3 shadow-sm">
+                            💾 {{ t('admin.pluginSettings.saveI18nBtn', 'Salvează Traducerile') }} ({{ loc_code|upper }})
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+function switchPluginI18nLocale(code) {
+    document.querySelectorAll('.plugin-i18n-locale-pane').forEach(el => el.classList.add('d-none'));
+    const pane = document.getElementById('plugin-i18n-pane-' + code);
+    if (pane) pane.classList.remove('d-none');
+}
+</script>
+{% endif %}

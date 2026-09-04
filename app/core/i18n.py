@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 APP_DIR = PROJECT_ROOT / "app"
 LOCALES_DIR = APP_DIR / "locales"
 
-DEFAULT_LOCALE = "ro"
+DEFAULT_LOCALE = "en"
 SUPPORTED_LOCALES = {"en", "ro"}
 
 _IN_MEMORY_TRANSLATIONS: dict[str, dict[str, Any]] = {}
@@ -150,7 +150,7 @@ def set_locale_cookie(response: Response, locale: str, *, path: str = "/", max_a
     )
 
 
-def get_translation(locale: str, key: str) -> str:
+def get_translation(locale: str, key: str, default_val: str = "") -> str:
     norm = (locale or DEFAULT_LOCALE).strip().lower()
     if norm not in _IN_MEMORY_TRANSLATIONS:
         norm = DEFAULT_LOCALE
@@ -172,7 +172,7 @@ def get_translation(locale: str, key: str) -> str:
     if key in fb_cat and isinstance(fb_cat[key], str) and fb_cat[key].strip():
         return fb_cat[key].strip()
 
-    return key
+    return default_val if default_val else key
 
 
 def get_translations(locale: str) -> dict[str, Any]:
@@ -184,6 +184,31 @@ def get_translations(locale: str) -> dict[str, Any]:
         for k, v in loc_cat.items():
             if isinstance(v, str) and v.strip():
                 cat[k] = v.strip()
+
+    plugins_dir = APP_DIR / "plugins"
+    if plugins_dir.exists():
+        try:
+            for plugin_dir in plugins_dir.iterdir():
+                if not plugin_dir.is_dir() or plugin_dir.name.startswith(("_", ".")) or "to_del" in plugin_dir.name:
+                    continue
+                p_locales = plugin_dir / "locales"
+                if p_locales.exists():
+                    for check_lang in (DEFAULT_LOCALE, norm):
+                        p_file = p_locales / f"{check_lang}.json"
+                        if p_file.is_file():
+                            try:
+                                with p_file.open("r", encoding="utf-8") as f:
+                                    p_data = json.load(f)
+                                    if isinstance(p_data, dict):
+                                        t_dict = p_data.get("translations", p_data) if isinstance(p_data.get("translations"), dict) else p_data
+                                        for pk, pv in t_dict.items():
+                                            if isinstance(pv, str) and pv.strip() and not pk.startswith("_"):
+                                                cat[pk] = pv.strip()
+                            except Exception:
+                                pass
+        except Exception:
+            pass
+
     return cat
 
 
@@ -308,39 +333,26 @@ def list_translation_catalog(locale: str) -> list[dict[str, Any]]:
 
 
 def get_plugin_translation(plugin_id: str, locale: str, key: str, default_val: str = "") -> str:
+    from app.core.translation_db import get_translation_from_db
+    db_val = get_translation_from_db(locale, f"plugins.{plugin_id}.{key}")
+    if db_val and db_val.strip():
+        return db_val.strip()
+
     def_locale = get_site_default_locale()
     norm_locale = (locale or def_locale).strip().lower()
 
     p_dir = APP_DIR / "plugins" / plugin_id / "locales"
 
-    target_file = p_dir / f"{norm_locale}.json"
-    if target_file.is_file():
-        try:
-            with target_file.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-                if key in data and data[key]:
-                    return data[key]
-        except Exception:
-            pass
-
-    def_file = p_dir / f"{def_locale}.json"
-    if def_file.is_file():
-        try:
-            with def_file.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-                if key in data and data[key]:
-                    return data[key]
-        except Exception:
-            pass
-
-    ro_file = p_dir / "ro.json"
-    if ro_file.is_file():
-        try:
-            with ro_file.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-                if key in data and data[key]:
-                    return data[key]
-        except Exception:
-            pass
+    for l_code in (norm_locale, def_locale, "ro"):
+        l_file = p_dir / f"{l_code}.json"
+        if l_file.is_file():
+            try:
+                with l_file.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    t_dict = data.get("translations", data) if isinstance(data, dict) else {}
+                    if key in t_dict and t_dict[key]:
+                        return t_dict[key]
+            except Exception:
+                pass
 
     return default_val or key

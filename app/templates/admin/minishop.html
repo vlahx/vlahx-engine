@@ -1,0 +1,607 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h1 class="fw-bold h2 mb-1">🛒 Administrare Minishop</h1>
+      <p class="text-secondary small mb-0">Gestionează produsele, imaginile dedicate, categoriile și comenzile.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/shop" target="_blank" class="btn btn-outline-primary btn-sm fw-semibold">
+        🌐 Vezi Magazinul Live
+      </a>
+      <a href="/admin" class="btn btn-secondary btn-sm">
+        ⚡ Panou Admin
+      </a>
+    </div>
+  </div>
+
+  <!-- Navigație Tab-uri -->
+  <ul class="nav nav-tabs mb-4" id="minishopTabs" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active fw-semibold" id="products-tab" data-bs-toggle="tab" data-bs-target="#products" type="button">
+        📦 Produse ({{ products|length }})
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link fw-semibold" id="categories-tab" data-bs-toggle="tab" data-bs-target="#categories" type="button">
+        📁 Categorii ({{ categories|length }})
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link fw-semibold" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders" type="button">
+        📑 Comenzi ({{ orders|length }})
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link fw-semibold" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings" type="button">
+        ⚙️ Setări & Stripe
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content" id="minishopTabsContent">
+    <!-- TAB 1: PRODUSE -->
+    <div class="tab-pane fade show active" id="products" role="tabpanel">
+      <div class="card border-0 shadow-sm p-4 mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h5 class="fw-bold mb-0" id="formProductTitle">➕ Adaugă Produs Nou</h5>
+          <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="resetFormBtn" onclick="resetProductForm()">
+            ✖ Resetează Formularul (Produs Nou)
+          </button>
+        </div>
+        <form action="/admin/minishop/product/save" method="POST" enctype="multipart/form-data" id="prodForm">
+          <input type="hidden" name="id" id="prod_id" value="">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Titlu Produs *</label>
+              <input type="text" name="title" id="prod_title" class="form-control form-control-sm" required placeholder="ex: Șapcă Oficială Camionagiul" oninput="autoSlugify(this.value)">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Slug (URL) *</label>
+              <input type="text" name="slug" id="prod_slug" class="form-control form-control-sm" required placeholder="ex: sapca-oficiala-camionagiul">
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Categorie</label>
+              <select name="category_id" id="prod_category_id" class="form-select form-select-sm">
+                <option value="">-- Fără Categorie --</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Tip Produs</label>
+              <select name="product_type" id="prod_type" class="form-select form-select-sm" onchange="toggleDigitalFileSection()">
+                <option value="physical">📦 Fizic (Tricou, Șapcă, Suvenir)</option>
+                <option value="digital">⚡ Virtual / Digital (.ZIP, PDF, Ebook)</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Preț *</label>
+              <input type="number" step="0.01" name="price" id="prod_price" class="form-control form-control-sm" required value="49.99">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Monedă</label>
+              <input type="text" name="currency" id="prod_currency" class="form-control form-control-sm" value="{{ currency }}">
+            </div>
+          </div>
+
+          <!-- SECTIUNE UPLOAD & GALERIE ORDONATĂ -->
+          <div class="p-3 border rounded bg-body-tertiary mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div>
+                <h6 class="fw-bold mb-1">📸 Galeria Foto & Imagini Produs</h6>
+                <p class="text-secondary small mb-0">Adaugă sau elimină poze din Biblioteca Media (procesate & optimizate automată cu Pillow).</p>
+              </div>
+              <button type="button" class="btn btn-sm btn-success fw-semibold px-3" onclick="openMediaManager({ category: 'shop', onSelect: selectFromMediaLibraryForShop })">
+                🖼️ Deschide Biblioteca Media (Adaugă / Upload Poze)
+              </button>
+            </div>
+
+            <!-- Previzualizare Imagini Salvate -->
+            <div id="existingImagesContainer" class="d-none mt-3">
+              <label class="form-label small fw-semibold text-dark d-block mb-2">🖼️ Pozele Selectate pentru Produs:</label>
+              <div class="row g-3" id="existingImagesList"></div>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <div class="d-flex align-items-center justify-content-between mb-1">
+                <label class="form-label small fw-semibold mb-0">Imagine Principală Copertă (URL)</label>
+                <button type="button" class="btn btn-xs btn-outline-primary fw-semibold" onclick="openMediaManager({ category: 'shop', onSelect: function(file) { const fullUrl = file.file_url.startsWith('http') ? file.file_url : (window.location.origin + (file.file_url.startsWith('/') ? '' : '/') + file.file_url); document.getElementById('prod_featured_image').value = fullUrl; } })">
+                  🖼️ Alege din Bibliotecă
+                </button>
+              </div>
+              <input type="url" name="featured_image" id="prod_featured_image" class="form-control form-control-sm" placeholder="/static/uploads/users/1/shop/sapca.jpg sau URL extern">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">URL Video Prezentare (YouTube / Vimeo / MP4)</label>
+              <input type="url" name="video_url" id="prod_video_url" class="form-control form-control-sm" placeholder="https://www.youtube.com/watch?v=...">
+            </div>
+          </div>
+
+          <div class="mb-3 p-3 border rounded bg-body-tertiary d-none" id="digitalFileSection">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <label class="form-label small fw-semibold text-primary mb-0">⚡ Fișier Digital Descărcabil (.ZIP, .PDF, Ebook, Software)</label>
+              <button type="button" class="btn btn-xs btn-outline-primary fw-semibold" onclick="openMediaManager({ category: 'shop', onSelect: function(file) { const fullUrl = file.file_url.startsWith('http') ? file.file_url : (window.location.origin + (file.file_url.startsWith('/') ? '' : '/') + file.file_url); document.getElementById('prod_digital_file_url').value = fullUrl; } })">
+                📂 Selectează / Upload Fișier din Bibliotecă
+              </button>
+            </div>
+            <input type="text" name="digital_file_url" id="prod_digital_file_url" class="form-control form-control-sm" placeholder="/static/uploads/users/1/shop/plugin-v2.zip sau URL extern de descărcare">
+            <small class="text-secondary d-block mt-1">Acest fișier este oferit automat cumpărătorului după confirmarea plății.</small>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Descriere Scurtă</label>
+            <input type="text" name="short_description" id="prod_short_description" class="form-control form-control-sm" placeholder="Descriere scurtă pentru cardul de produs">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Descriere Detaliată (HTML)</label>
+            <textarea name="description_html" id="prod_description_html" class="form-control form-control-sm" rows="3" placeholder="Descriere detaliată cu opțiuni și detalii tehnice"></textarea>
+          </div>
+
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" name="is_active" id="prod_is_active" value="1" checked>
+            <label class="form-check-label small fw-semibold" for="prod_is_active">
+              ✅ Produs Activ în Magazin (Vizibil clienților în frontend /shop)
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold" id="saveProdBtn">
+            💾 Salvează Produsul
+          </button>
+        </form>
+      </div>
+
+      <!-- LISTA PRODUSE -->
+      <div class="card border-0 shadow-sm p-4">
+        <h5 class="fw-bold mb-3">Produse Înregistrate</h5>
+        {% if products %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle small">
+            <thead>
+              <tr>
+                <th>Copertă (Default)</th>
+                <th>Titlu & Cale</th>
+                <th>Tip</th>
+                <th>Preț</th>
+                <th>Categorie</th>
+                <th class="text-end">Acțiuni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in products %}
+              <tr>
+                <td>
+                  {% if p.featured_image %}
+                  <img src="{{ p.featured_image }}" width="45" height="45" class="rounded object-fit-cover shadow-sm">
+                  {% else %}
+                  <div class="rounded bg-secondary text-white d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">📦</div>
+                  {% endif %}
+                </td>
+                <td>
+                  <strong>{{ p.title }}</strong><br>
+                  <small class="text-secondary">/shop/product/{{ p.slug }}</small>
+                </td>
+                <td>
+                  {% if p.product_type == 'digital' %}
+                  <span class="badge bg-primary">⚡ Digital</span>
+                  {% else %}
+                  <span class="badge bg-success">📦 Fizic</span>
+                  {% endif %}
+                </td>
+                <td><strong>{{ "%.2f"|format(p.price) }} {{ p.currency }}</strong></td>
+                <td>{{ p.category_name or '—' }}</td>
+                <td class="text-end">
+                  <div class="d-inline-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick='editProduct({{ p | tojson }})'>
+                      ✏️ Editează
+                    </button>
+                    <form action="/admin/minishop/product/delete" method="POST" onsubmit="return confirm('Ștergi acest produs?')">
+                      <input type="hidden" name="id" value="{{ p.id }}">
+                      <button type="submit" class="btn btn-outline-danger btn-sm">Șterge</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-secondary small mb-0">Nu există produse adăugate.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- TAB 2: CATEGORII -->
+    <div class="tab-pane fade" id="categories" role="tabpanel">
+      <div class="row g-4">
+        <div class="col-md-5">
+          <div class="card border-0 shadow-sm p-4">
+            <h5 class="fw-bold mb-3">Adaugă Categorie</h5>
+            <form action="/admin/minishop/category/save" method="POST">
+              <div class="mb-3">
+                <label class="form-label small fw-semibold">Nume Categorie *</label>
+                <input type="text" name="name" class="form-control form-control-sm" required placeholder="ex: Software & Plugin-uri">
+              </div>
+              <div class="mb-3">
+                <label class="form-label small fw-semibold">Slug *</label>
+                <input type="text" name="slug" class="form-control form-control-sm" required placeholder="ex: software">
+              </div>
+              <div class="mb-3">
+                <label class="form-label small fw-semibold">Icon (Emoji)</label>
+                <input type="text" name="icon" class="form-control form-control-sm" value="📦">
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold">
+                💾 Salvează Categoria
+              </button>
+            </form>
+          </div>
+        </div>
+        <div class="col-md-7">
+          <div class="card border-0 shadow-sm p-4">
+            <h5 class="fw-bold mb-3">Categorii Existente</h5>
+            {% if categories %}
+            <ul class="list-group">
+              {% for c in categories %}
+              <li class="list-group-item d-flex align-items-center justify-content-between">
+                <div>
+                  <span class="me-2 fs-5">{{ c.icon }}</span>
+                  <strong>{{ c.name }}</strong>
+                  <span class="text-secondary small me-2">({{ c.slug }})</span>
+                </div>
+                <form action="/admin/minishop/category/delete" method="POST" onsubmit="return confirm('Ștergi această categorie?')">
+                  <input type="hidden" name="id" value="{{ c.id }}">
+                  <button type="submit" class="btn btn-outline-danger btn-sm">Șterge</button>
+                </form>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-secondary small mb-0">Nu există categorii create.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: COMENZI -->
+    <div class="tab-pane fade" id="orders" role="tabpanel">
+      <div class="card border-0 shadow-sm p-4">
+        <h5 class="fw-bold mb-3">Comenzi Primite</h5>
+        {% if orders %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle small">
+            <thead>
+              <tr>
+                <th>Comandă</th>
+                <th>Client</th>
+                <th>Produse</th>
+                <th>Total</th>
+                <th>Metodă Plată</th>
+                <th>Status Plată</th>
+                <th>Status Livrare</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for o in orders %}
+              <tr>
+                <td><strong>#{{ o.order_number }}</strong></td>
+                <td>
+                  <strong>{{ o.customer_name }}</strong><br>
+                  <span class="text-secondary">{{ o.customer_email }}</span><br>
+                  <small>{{ o.customer_phone or '' }}</small>
+                </td>
+                <td>
+                  {% for item in o.order_items %}
+                  <div>• {{ item.product_title }} (x{{ item.quantity }})</div>
+                  {% endfor %}
+                </td>
+                <td><strong>{{ "%.2f"|format(o.total_amount) }} {{ o.currency }}</strong></td>
+                <td><span class="badge bg-secondary text-uppercase">{{ o.payment_method }}</span></td>
+                <td>
+                  <form action="/admin/minishop/order/status" method="POST">
+                    <input type="hidden" name="order_id" value="{{ o.id }}">
+                    <select name="payment_status" class="form-select form-select-sm" onchange="this.form.submit()">
+                      <option value="pending" {% if o.payment_status == 'pending' %}selected{% endif %}>În așteptare</option>
+                      <option value="paid" {% if o.payment_status == 'paid' %}selected{% endif %}>Plătit</option>
+                      <option value="failed" {% if o.payment_status == 'failed' %}selected{% endif %}>Eșuat</option>
+                    </select>
+                  </form>
+                </td>
+                <td>
+                  <form action="/admin/minishop/order/status" method="POST">
+                    <input type="hidden" name="order_id" value="{{ o.id }}">
+                    <select name="fulfillment_status" class="form-select form-select-sm" onchange="this.form.submit()">
+                      <option value="processing" {% if o.fulfillment_status == 'processing' %}selected{% endif %}>În procesare</option>
+                      <option value="shipped" {% if o.fulfillment_status == 'shipped' %}selected{% endif %}>Expediat</option>
+                      <option value="delivered" {% if o.fulfillment_status == 'delivered' %}selected{% endif %}>Livrat</option>
+                      <option value="completed" {% if o.fulfillment_status == 'completed' %}selected{% endif %}>Finalizat</option>
+                    </select>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-secondary small mb-0">Nu există nicio comandă plasată încă.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- TAB 4: SETĂRI & STRIPE -->
+    <div class="tab-pane fade" id="settings" role="tabpanel">
+      <div class="card border-0 shadow-sm p-4 col-lg-8">
+        <h5 class="fw-bold mb-3">Setări Generale & Integrare Stripe</h5>
+        <form action="/admin/minishop/settings/save" method="POST">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Monedă Implicită</label>
+            <input type="text" name="currency" class="form-control form-control-sm" value="{{ currency }}" placeholder="RON, EUR, USD">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Stripe Publishable Key (pk_live_... / pk_test_...)</label>
+            <input type="text" name="stripe_publishable_key" class="form-control form-control-sm" value="{{ stripe_pub }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Stripe Secret Key (sk_live_... / sk_test_...)</label>
+            <input type="password" name="stripe_secret_key" class="form-control form-control-sm" value="{{ stripe_sec }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Stripe Webhook Signing Secret (whsec_...)</label>
+            <input type="password" name="stripe_webhook_secret" class="form-control form-control-sm" value="{{ stripe_whsec or '' }}" placeholder="whsec_...">
+            <small class="text-secondary">URL-ul Webhook de introdus în Stripe Dashboard: <code class="user-select-all">https://camionagiul.club/shop/stripe/webhook</code></small>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="notify_telegram" value="1" id="notifyTg" {% if notify_tg == 'true' or notify_tg == '1' %}checked{% endif %}>
+            <label class="form-check-label small fw-semibold" for="notifyTg">
+              📲 Notifică administratorii pe Telegram la comenzi noi
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold">
+            💾 Salvează Setările Shop
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+function selectFromMediaLibraryForShop(file) {
+  if (!file || !file.file_url) return;
+  const fullUrl = file.file_url.startsWith('http') ? file.file_url : (window.location.origin + (file.file_url.startsWith('/') ? '' : '/') + file.file_url);
+  const featInput = document.getElementById('prod_featured_image');
+  if (featInput && !featInput.value) {
+    featInput.value = fullUrl;
+  }
+  const container = document.getElementById('existingImagesContainer');
+  const list = document.getElementById('existingImagesList');
+  if (list && container) {
+    container.classList.remove('d-none');
+    const card = document.createElement('div');
+    card.className = 'col-6 col-md-3';
+    card.innerHTML = `
+      <div class="card h-100 p-2 text-center border shadow-sm bg-white">
+        <img src="${fullUrl}" class="rounded object-fit-cover mb-2" style="width: 100%; height: 90px;">
+        <input type="hidden" name="existing_images" value="${fullUrl}">
+        <span class="badge bg-primary small mb-1">🖼️ Din Bibliotecă</span>
+        <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2 small mt-1" onclick="this.closest('.col-6').remove()">
+          🗑️ Înlătură
+        </button>
+      </div>
+    `;
+    list.appendChild(card);
+  }
+}
+
+let selectedNewFiles = [];
+
+function handleFileSelect(input) {
+  if (input.files && input.files.length > 0) {
+    Array.from(input.files).forEach(f => {
+      selectedNewFiles.push(f);
+    });
+    updateFileInputDataTransfer();
+    renderNewUploadsPreview();
+  }
+}
+
+function removeNewFile(index) {
+  selectedNewFiles.splice(index, 1);
+  updateFileInputDataTransfer();
+  renderNewUploadsPreview();
+}
+
+function updateFileInputDataTransfer() {
+  const dt = new DataTransfer();
+  selectedNewFiles.forEach(file => dt.items.add(file));
+  document.getElementById('uploadImagesInput').files = dt.files;
+}
+
+function renderNewUploadsPreview() {
+  const container = document.getElementById('newUploadsPreviewContainer');
+  const list = document.getElementById('newUploadsPreviewList');
+  list.innerHTML = '';
+
+  if (selectedNewFiles.length === 0) {
+    container.classList.add('d-none');
+    return;
+  }
+
+  container.classList.remove('d-none');
+
+  selectedNewFiles.forEach((file, idx) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const card = document.createElement('div');
+      card.className = 'col-6 col-md-3 position-relative';
+      card.innerHTML = `
+        <div class="card h-100 p-2 text-center border shadow-sm bg-white position-relative">
+          <button type="button" class="btn-close position-absolute top-0 end-0 m-2 bg-white rounded-circle p-1 shadow-sm" title="Înlătură această poză selectată" onclick="removeNewFile(${idx})"></button>
+          <img src="${e.target.result}" class="rounded object-fit-cover mb-2 mt-3" style="width: 100%; height: 90px;">
+          <div class="small text-truncate fw-bold mb-1" title="${file.name}">${file.name}</div>
+          <div class="form-check form-check-inline justify-content-center mb-0">
+            <input class="form-check-input" type="radio" name="default_new_index" id="def_new_${idx}" value="${idx}" ${idx === 0 ? 'checked' : ''}>
+            <label class="form-check-label small fw-bold text-success" for="def_new_${idx}">⭐ Copertă</label>
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function autoSlugify(str) {
+  const slugInput = document.getElementById('prod_slug');
+  if (slugInput && !document.getElementById('prod_id').value) {
+    slugInput.value = str.toLowerCase().trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-');
+  }
+}
+
+function editProduct(p) {
+  document.getElementById('formProductTitle').innerText = '✏️ Editează Produs: ' + p.title;
+  document.getElementById('saveProdBtn').innerText = '💾 Actualizează Produsul';
+  document.getElementById('resetFormBtn').classList.remove('d-none');
+
+  document.getElementById('prod_id').value = p.id || '';
+  document.getElementById('prod_title').value = p.title || '';
+  document.getElementById('prod_slug').value = p.slug || '';
+  document.getElementById('prod_category_id').value = p.category_id || '';
+  document.getElementById('prod_type').value = p.product_type || 'physical';
+  toggleDigitalFileSection();
+  document.getElementById('prod_price').value = p.price || 0;
+  document.getElementById('prod_currency').value = p.currency || 'RON';
+  document.getElementById('prod_featured_image').value = p.featured_image || '';
+  document.getElementById('prod_video_url').value = p.video_url || '';
+  document.getElementById('prod_digital_file_url').value = p.digital_file_url || '';
+  document.getElementById('prod_short_description').value = p.short_description || '';
+  document.getElementById('prod_description_html').value = p.description_html || '';
+
+  renderExistingImagesList(p);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderExistingImagesList(p) {
+  const container = document.getElementById('existingImagesContainer');
+  const list = document.getElementById('existingImagesList');
+  list.innerHTML = '';
+
+  let allImgs = [];
+  if (p.featured_image) allImgs.push(p.featured_image);
+  if (p.gallery_images && Array.isArray(p.gallery_images)) {
+    p.gallery_images.forEach(img => {
+      if (img && !allImgs.includes(img)) allImgs.push(img);
+    });
+  }
+
+  if (allImgs.length > 0) {
+    container.classList.remove('d-none');
+    allImgs.forEach((imgUrl, idx) => {
+      const isDefault = (imgUrl === p.featured_image);
+      const card = document.createElement('div');
+      card.className = 'col-6 col-md-3';
+      card.id = `img_card_${p.id}_${idx}`;
+      card.innerHTML = `
+        <div class="card h-100 p-2 text-center border shadow-sm ${isDefault ? 'border-success bg-success-subtle' : 'bg-white'}">
+          <img src="${imgUrl}" class="rounded object-fit-cover mb-2" style="width: 100%; height: 90px;">
+          <input type="hidden" name="existing_images" value="${imgUrl}">
+          
+          <div class="d-flex flex-column gap-1 align-items-center">
+            ${isDefault ? '<span class="badge bg-success fw-bold mb-1">⭐ COPERTĂ PRINCIPALĂ</span>' : `
+              <button type="button" class="btn btn-xs btn-outline-success py-0 px-2 small mb-1" onclick="setProductCover(${p.id}, '${imgUrl}')">
+                ⭐ Setează Copertă
+              </button>
+            `}
+            <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2 small" onclick="deleteProductImage(${p.id}, '${imgUrl}')">
+              🗑️ Înblătură Poza
+            </button>
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  } else {
+    container.classList.add('d-none');
+  }
+}
+
+async function setProductCover(prodId, imgUrl) {
+  const formData = new FormData();
+  formData.append('product_id', prodId);
+  formData.append('image_url', imgUrl);
+
+  try {
+    const res = await fetch('/admin/minishop/product/image/set-cover', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.ok && data.product) {
+      renderExistingImagesList(data.product);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function deleteProductImage(prodId, imgUrl) {
+  if (!confirm('Înlături această poză din galeria produsului?')) return;
+
+  const formData = new FormData();
+  formData.append('product_id', prodId);
+  formData.append('image_url', imgUrl);
+
+  try {
+    const res = await fetch('/admin/minishop/product/image/delete', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.ok && data.product) {
+      renderExistingImagesList(data.product);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function resetProductForm() {
+  document.getElementById('formProductTitle').innerText = '➕ Adaugă Produs Nou';
+  document.getElementById('saveProdBtn').innerText = '💾 Salvează Produsul';
+  document.getElementById('resetFormBtn').classList.add('d-none');
+  document.getElementById('prodForm').reset();
+  document.getElementById('prod_id').value = '';
+  document.getElementById('prod_is_active').checked = true;
+  selectedNewFiles = [];
+  document.getElementById('existingImagesContainer').classList.add('d-none');
+  document.getElementById('existingImagesList').innerHTML = '';
+  document.getElementById('newUploadsPreviewContainer').classList.add('d-none');
+  document.getElementById('newUploadsPreviewList').innerHTML = '';
+}
+function toggleDigitalFileSection() {
+  const typeSelect = document.getElementById('prod_type');
+  const section = document.getElementById('digitalFileSection');
+  if (typeSelect && section) {
+    if (typeSelect.value === 'digital') {
+      section.classList.remove('d-none');
+    } else {
+      section.classList.add('d-none');
+    }
+  }
+}
+document.addEventListener('DOMContentLoaded', toggleDigitalFileSection);
+</script>
+
+
+
+{% endblock %}
+

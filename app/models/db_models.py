@@ -39,7 +39,12 @@ class User(Base):
     def roles_list(self) -> list[str]:
         if not self.role:
             return ["reader"]
-        return [r.strip().lower() for r in self.role.split(",") if r.strip()]
+        roles = [r.strip().lower() for r in self.role.split(",") if r.strip()]
+        if "admin" in roles:
+            for r in ("developer", "editor", "reader"):
+                if r not in roles:
+                    roles.append(r)
+        return roles
 
     def has_role(self, *allowed_roles: str) -> bool:
         user_roles = set(self.roles_list)
@@ -49,7 +54,6 @@ class User(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    posts: Mapped[list["Post"]] = relationship(back_populates="author")
 
 
 class AppSetting(Base):
@@ -122,22 +126,6 @@ class PluginSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     plugin: Mapped["Plugin"] = relationship(back_populates="settings")
-
-
-class Comment(Base):
-    __tablename__ = "comments"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    post_slug: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
-    parent_id: Mapped[int | None] = mapped_column(ForeignKey("comments.id", ondelete="CASCADE"), nullable=True, default=None)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    user_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    user_avatar: Mapped[str | None] = mapped_column(Text, nullable=True)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="approved", index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-
-    user: Mapped["User"] = relationship()
 
 
 class MediaFile(Base):

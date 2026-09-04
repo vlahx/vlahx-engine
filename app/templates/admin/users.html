@@ -5,7 +5,7 @@
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
       <h1 class="h3 fw-bold mb-1">👥 {{ t('admin.users.title') }}</h1>
-      <p class="text-secondary mb-0">{{ t('admin.users.subtitle') }}</p>
+      <p class="text-body-secondary mb-0">{{ t('admin.users.subtitle') }}</p>
     </div>
   </div>
 
@@ -52,15 +52,15 @@
                 {% endif %}
                 <div>
                   <div class="fw-bold">{{ u.first_name or '' }} {{ u.last_name or '' }}</div>
-                  <div class="small text-secondary">ID: {{ u.oauth_id }}</div>
+                  <div class="small text-body-secondary">ID: {{ u.oauth_id }}</div>
                 </div>
               </div>
             </td>
             <td>
               {% if u.username %}
-                <span class="badge bg-light text-dark border">@{{ u.username }}</span>
+                <span class="badge bg-body-secondary text-body border">@{{ u.username }}</span>
               {% else %}
-                <span class="text-muted small">—</span>
+                <span class="text-body-secondary small">—</span>
               {% endif %}
             </td>
             <td class="text-center">
@@ -76,19 +76,19 @@
                   {% elif clean_r == 'seller' %}
                     <span class="badge bg-success shadow-sm">🛒 {{ t('admin.roles.seller') }}</span>
                   {% elif clean_r == 'author' %}
-                    <span class="badge bg-info text-dark shadow-sm">📝 {{ t('admin.roles.author') }}</span>
+                    <span class="badge bg-info text-body shadow-sm">📝 {{ t('admin.roles.author') }}</span>
                   {% elif clean_r == 'reader' or clean_r == 'user' %}
                     <span class="badge bg-secondary shadow-sm">💬 {{ t('admin.roles.reader') }}</span>
                   {% else %}
-                    <span class="badge bg-warning text-dark shadow-sm">⏳ {{ t('admin.roles.pending') }}</span>
+                    <span class="badge bg-warning text-body shadow-sm">⏳ {{ t('admin.roles.pending') }}</span>
                   {% endif %}
                 {% endfor %}
               </div>
               {% if u.dev_status == 'pending' %}
               <div class="mt-2 p-2 border border-warning rounded bg-warning bg-opacity-10 text-start" style="max-width: 220px; margin: 0 auto;">
-                <div class="small fw-bold text-dark mb-1">⏳ Cerere VlahX Developer</div>
+                <div class="small fw-bold text-body mb-1">⏳ Cerere VlahX Developer</div>
                 {% if u.dev_notes %}
-                <div class="small text-secondary mb-2" style="font-size: 0.78rem;"><em>"{{ u.dev_notes }}"</em></div>
+                <div class="small text-body-secondary mb-2" style="font-size: 0.78rem;"><em>"{{ u.dev_notes }}"</em></div>
                 {% endif %}
                 <div class="d-flex gap-1 justify-content-center">
                   <form action="/admin/users/{{ u.id }}/approve-developer" method="post" class="d-inline">
@@ -127,7 +127,7 @@
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="roles" value="reader" id="r_reader_{{ u.id }}" {% if 'reader' in u_roles or 'user' in u_roles %}checked{% endif %}>
-                    <label class="form-check-label text-secondary" for="r_reader_{{ u.id }}">💬 {{ t('admin.roles.reader') }}</label>
+                    <label class="form-check-label text-body-secondary" for="r_reader_{{ u.id }}">💬 {{ t('admin.roles.reader') }}</label>
                   </div>
                 </div>
                 <button type="submit" class="btn btn-sm btn-success w-100 mt-2 fw-semibold">
@@ -137,7 +137,7 @@
             </td>
             <td class="text-end">
               <div class="d-flex align-items-center justify-content-end gap-3">
-                <span class="text-secondary small">{{ u.created_at.strftime('%d.%m.%Y %H:%M') if u.created_at else '—' }}</span>
+                <span class="text-body-secondary small">{{ u.created_at.strftime('%d.%m.%Y %H:%M') if u.created_at else '—' }}</span>
                 {% if request.state.user_id != u.id %}
                 <form action="/admin/users/{{ u.id }}/delete" method="post" class="d-inline" onsubmit="return confirm('{{ t('admin.users.confirmDelete') }} {{ u.first_name or u.username or u.oauth_id }}?')">
                   <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ t('admin.actions.delete') }}">

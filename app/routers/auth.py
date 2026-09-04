@@ -6,6 +6,9 @@ import json
 import urllib.request
 import urllib.parse
 from typing import Any
+import pathlib
+from uuid import uuid4
+from app.core.config import APP_DIR
 
 from fastapi import APIRouter, Depends, Request, Form, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -22,6 +25,8 @@ from app.utils.db import get_db
 from app.utils.telegram import verify_telegram_login
 from app.utils.open_graph import public_site_origin
 import hmac
+import pathlib
+from uuid import uuid4
 import hashlib
 import base64
 import time
@@ -33,7 +38,7 @@ def create_sso_token(user: User) -> str:
         "username": user.username or f"user_{user.id}",
         "email": user.email or "",
         "role": user.role or "reader",
-        "exp": int(time.time()) + 60
+        "exp": int(time.time()) + 300
     }
     payload_bytes = json.dumps(payload).encode('utf-8')
     b64_payload = base64.urlsafe_b64encode(payload_bytes).decode('utf-8').rstrip('=')
@@ -63,7 +68,12 @@ def get_github_credentials() -> tuple[str, str]:
 def build_auth_router(templates: Jinja2Templates) -> APIRouter:
     @router.get("/login", response_class=HTMLResponse)
     @router.get("/admin/login", response_class=HTMLResponse)
-    def login_page(request: Request, msg: str | None = None, err: str | None = None):
+    def login_page(request: Request, msg: str | None = None, err: str | None = None, db: Session = Depends(get_db)):
+        from app.models.db_models import User
+        from sqlalchemy import func, select
+        users_count = db.execute(select(func.count(User.id))).scalar() or 0
+        if users_count == 0:
+            return RedirectResponse(url="/install", status_code=303)
         bot_username = get_telegram_bot_username()
         google_client_id, _ = get_google_credentials()
         github_client_id, _ = get_github_credentials()
@@ -97,10 +107,10 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         ).scalars().first()
 
         if not user or not user.password_hash or not verify_password(password.strip(), user.password_hash):
-            return RedirectResponse(url="/login?err=Email+sau+parolă+incorectă.", status_code=303)
+            return RedirectResponse(url="/login?err=Invalid+email+or+password.", status_code=303)
 
         if not user.email_verified:
-            return RedirectResponse(url="/login?err=Adresa+de+email+nu+a+fost+verificată+încă.+Verifică+Inbox-ul+sau+Folderul+Spam+pentru+linkul+de+activare.", status_code=303)
+            return RedirectResponse(url="/login?err=Email+address+is+not+verified+yet.+Please+check+your+inbox+for+activation.", status_code=303)
 
         request.session["user_id"] = str(user.id)
         return RedirectResponse(url="/profile", status_code=303)
@@ -133,7 +143,7 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
 
         email_clean = email.strip().lower()
         if not email_clean or "@" not in email_clean:
-            return RedirectResponse(url="/register?err=Adresă+de+email+nevalidă.", status_code=303)
+            return RedirectResponse(url="/register?err=Invalid+email+address.", status_code=303)
 
         existing = db.execute(select(User).where(User.email == email_clean)).scalars().first()
         token = uuid4().hex
@@ -141,7 +151,7 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
 
         if existing:
             if existing.password_hash:
-                return RedirectResponse(url="/register?err=Există+deja+un+cont+cu+această+adresă+de+email.", status_code=303)
+                return RedirectResponse(url="/register?err=An+account+with+this+email+address+already+exists.", status_code=303)
             else:
                 # Link classic password & email verification to existing OAuth user
                 existing.first_name = first_name.strip() or existing.first_name
@@ -196,7 +206,7 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         
         # Mandatory Email Verification Redirect - DO NOT Auto-Login
         return RedirectResponse(
-            url=f"/login?msg=Contul+a+fost+creat!+Un+link+de+verificare+a+fost+trimis+pe+adresa+{email_clean}.+Verifică+Inbox-ul+pentru+activare.",
+            url=f"/login?msg=Account+created!+A+verification+link+has+been+sent+to+{email_clean}.",
             status_code=303
         )
 
@@ -211,7 +221,7 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         db.commit()
 
         request.session["user_id"] = str(user.id)
-        return RedirectResponse(url="/profile?msg=Emailul+tău+a+fost+verificat+cu+succes!+Bun+venit!", status_code=303)
+        return RedirectResponse(url="/profile?msg=Your+email+has+been+verified+successfully!+Welcome!", status_code=303)
 
     @router.post("/profile/intent")
     async def save_profile_intent(request: Request, intent: str = Form(...), db: Session = Depends(get_db)):
@@ -244,10 +254,10 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
                 except Exception as e:
                     logger.warning(f"save_profile_intent: Telegram notify error: {e}")
 
-                return RedirectResponse(url="/profile?msg=Solicitarea+pentru+rolul+de+Dezvoltator+a+fost+trimisă!+Se+așteaptă+aprobarea+administratorului.", status_code=303)
+                return RedirectResponse(url="/profile?msg=Developer+role+request+submitted!+Awaiting+administrator+approval.", status_code=303)
 
         db.commit()
-        return RedirectResponse(url=f"/profile?msg=Opțiunea+ta+({clean_intent})+a+fost+salvată!", status_code=303)
+        return RedirectResponse(url=f"/profile?msg=Your+preference+({clean_intent})+has+been+saved!", status_code=303)
 
     @router.get("/dev/login")
     async def dev_login(
@@ -291,15 +301,18 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         return RedirectResponse(url="/profile", status_code=303)
 
     @router.get("/auth/sso-redirect")
-    async def sso_redirect(request: Request, db: Session = Depends(get_db)):
+    async def sso_redirect(request: Request, referrer: str | None = None, db: Session = Depends(get_db)):
         user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
+        target_ref = (referrer or "").strip().rstrip("/")
         if not user:
-            return RedirectResponse(url="/admin/login?next=/auth/sso-redirect", status_code=303)
-        if not user_has_role(user, "developer", "admin"):
+            login_next = f"/auth/sso-redirect?referrer={target_ref}" if target_ref else "/auth/sso-redirect"
+            import urllib.parse
+            return RedirectResponse(url=f"/admin/login?next={urllib.parse.quote(login_next)}", status_code=303)
+        if not user_has_role(user, "developer", "admin", "administrator", "superadmin"):
             return RedirectResponse(url="/profile?error=developer_role_required", status_code=303)
 
         token = create_sso_token(user)
-        repo_base = get_repo_domain_url()
+        repo_base = target_ref if target_ref else get_repo_domain_url()
         return RedirectResponse(url=f"{repo_base}/auth/sso?token={token}", status_code=303)
 
     @router.get("/admin/pending", response_class=HTMLResponse)
@@ -732,7 +745,7 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         if "session" in request.scope:
             request.session.clear()
 
-        return RedirectResponse(url="/?msg=Ștergerea+contului+a+fost+programată.+Ai+la+dispoziție+30+de+zile+pentru+a-ți+recupera+contul.", status_code=303)
+        return RedirectResponse(url="/?msg=Account+deletion+scheduled.+You+have+30+days+to+recover+your+account.", status_code=303)
 
     @router.post("/profile/cancel-deletion")
     async def user_profile_cancel_deletion(
@@ -746,7 +759,7 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         from app.core.user_purge import cancel_user_deletion
         cancel_user_deletion(db, user.id)
 
-        return RedirectResponse(url="/profile?msg=Ștergerea+a+fost+anulată.+Contul+tău+a+fost+recuperat+cu+succes!", status_code=303)
+        return RedirectResponse(url="/profile?msg=Account+deletion+cancelled.+Your+account+has+been+recovered+successfully!", status_code=303)
 
     @router.post("/profile/update")
     async def user_profile_update(

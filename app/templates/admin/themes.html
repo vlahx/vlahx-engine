@@ -4,12 +4,12 @@
 <section class="py-4">
   <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
     <div>
-      <h1 class="h3 fw-bold mb-1">🎨 {{ t('admin.themes.title') }}</h1>
-      <p class="text-secondary mb-0">{{ t('admin.themes.subtitle') }}</p>
-      <p class="text-secondary small mb-0">{{ t('admin.themes.installHelp') }}</p>
+      <h1 class="h3 fw-bold mb-1">🎨 {{ t('admin.themes.title', 'Visual Themes') }}</h1>
+      <p class="text-body-secondary mb-0">{{ t('admin.themes.subtitle', 'Upload and manage site themes via .zip archives (templates + CSS styles).') }}</p>
+      <p class="text-body-secondary small mb-0">{{ t('admin.themes.installHelp', 'Themes automatically install into dedicated directories and can be switched with 1-click.') }}</p>
     </div>
     <a href="/admin/repo" class="btn btn-outline-primary fw-bold rounded-pill px-3 shadow-sm">
-      🏪 Deschide Magazin Repository (repo.vlahx.org) ➔
+      {{ t('admin.plugins.openRepoStore', '🏪 Open Repository Store (repo.vlahx.org) ➔') }}
     </a>
   </div>
 
@@ -23,18 +23,18 @@
 
   <div class="card shadow-sm mb-4">
     <div class="card-body">
-      <h2 class="h5 mb-3">{{ t('admin.themes.uploadTitle') }}</h2>
+      <h2 class="h5 mb-3">{{ t('admin.themes.uploadTitle', 'Upload New Theme') }}</h2>
       <form method="post" action="/admin/themes/upload" enctype="multipart/form-data" class="d-flex flex-column gap-3">
         <div>
-          <label class="form-label">{{ t('admin.themes.zipArchive') }}</label>
+          <label class="form-label">{{ t('admin.themes.zipArchive', 'ZIP Archive') }}</label>
           <input class="form-control" type="file" name="file" accept=".zip,application/zip" required />
         </div>
         <div class="form-check">
           <input class="form-check-input" type="checkbox" value="1" id="overwrite" name="overwrite">
-          <label class="form-check-label" for="overwrite">{{ t('admin.themes.overwriteExisting') }}</label>
+          <label class="form-check-label" for="overwrite">{{ t('admin.themes.overwriteExisting', 'Overwrite if theme already exists') }}</label>
         </div>
         <div>
-          <button class="btn btn-primary" type="submit">{{ t('admin.actions.install') }}</button>
+          <button class="btn btn-primary" type="submit">{{ t('admin.actions.install', 'Install') }}</button>
         </div>
       </form>
     </div>
@@ -42,16 +42,16 @@
 
   <div class="card shadow-sm">
     <div class="card-body">
-      <h2 class="h5 mb-3">{{ t('admin.themes.installedThemes') }}</h2>
+      <h2 class="h5 mb-3">{{ t('admin.themes.installedThemes', 'Installed Themes') }}</h2>
       <div class="table-responsive">
         <table class="table align-middle mb-0">
           <thead>
             <tr>
               <th>Slug</th>
-              <th>{{ t('admin.themes.colName') }}</th>
-              <th>{{ t('admin.themes.colAuthor') }}</th>
-              <th>{{ t('admin.themes.colActive') }}</th>
-              <th class="text-end">{{ t('admin.dashboard.colActions') }}</th>
+              <th>{{ t('admin.themes.colName', 'Theme Name') }}</th>
+              <th>{{ t('admin.themes.colAuthor', 'Author') }}</th>
+              <th>{{ t('admin.themes.colActive', 'Status') }}</th>
+              <th class="text-end">{{ t('admin.plugins.colActions', 'Actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -62,27 +62,27 @@
               <td>{{ t_theme.author }}</td>
               <td>
                 {% if t_theme.slug == active_theme_slug %}
-                  <span class="badge bg-success">Active</span>
+                  <span class="badge bg-success">{{ t('admin.themes.activeBadge', 'Active') }}</span>
                 {% else %}
-                  <span class="badge bg-secondary">Inactive</span>
+                  <span class="badge bg-secondary">{{ t('admin.themes.inactiveBadge', 'Inactive') }}</span>
                 {% endif %}
               </td>
               <td class="text-end">
                 {% if t_theme.slug == active_theme_slug %}
-                  <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">✓ Active Theme</span>
+                  <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">{{ t('admin.themes.activeThemeNotice', '✓ Active Theme') }}</span>
                 {% else %}
                   <form method="post" action="/admin/themes/activate" class="d-inline me-1">
                     <input type="hidden" name="slug" value="{{ t_theme.slug|e }}" />
                     <button class="btn btn-sm btn-outline-primary fw-semibold" type="submit">
-                      Activate
+                      {{ t('admin.themes.activateBtn', 'Activate') }}
                     </button>
                   </form>
                   <form method="post" action="/admin/themes/delete" class="d-inline">
                     <input type="hidden" name="slug" value="{{ t_theme.slug|e }}" />
                     <button class="btn btn-sm btn-outline-danger"
                             type="submit"
-                            onclick="return confirm('{{ t('admin.themes.confirmDelete') }} {{ t_theme.slug }}?');">
-                      {{ t('admin.actions.delete') }}
+                            onclick="return confirm('{{ t('admin.themes.confirmDelete', 'Are you sure you want to delete theme') }} {{ t_theme.slug }}?');">
+                      {{ t('admin.actions.delete', 'Delete') }}
                     </button>
                   </form>
                 {% endif %}
@@ -92,7 +92,7 @@
           </tbody>
         </table>
       </div>
-      <p class="text-secondary small mt-3 mb-0">{{ t('admin.themes.changeThemeHelp') }}</p>
+      <p class="text-body-secondary small mt-3 mb-0">{{ t('admin.themes.changeThemeHelp', 'Switching active theme is done directly by clicking the Activate button.') }}</p>
     </div>
   </div>
 </section>
