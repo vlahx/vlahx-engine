@@ -60,3 +60,34 @@ def write_settings(updates: dict[str, Any]) -> None:
             invalidate_nav_fixed_post_links_cache()
     except Exception:
         pass
+
+
+DEFAULT_SSO_APPS = [
+    {
+        "id": "vlahx_repo",
+        "name": "VlahX Repo Store",
+        "base_url": "https://repo.vlahx.org",
+        "logout_url": "https://repo.vlahx.org/auth/logout",
+        "is_active": True,
+    }
+]
+
+
+def get_sso_applications() -> list[dict[str, Any]]:
+    s = read_settings()
+    raw = s.get("SSO_APPLICATIONS")
+    if not raw:
+        return DEFAULT_SSO_APPS
+    if isinstance(raw, list):
+        return raw
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            return parsed
+    except Exception:
+        pass
+    return DEFAULT_SSO_APPS
+
+
+def save_sso_applications(apps: list[dict[str, Any]]) -> None:
+    write_settings({"SSO_APPLICATIONS": apps})

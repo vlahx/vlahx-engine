@@ -65,7 +65,7 @@ except ImportError:
     def delete_post(*args, **kwargs): return False
     def save_post(*args, **kwargs): return None
     def slugify(text): return text.lower()
-from app.core.site_settings import read_settings, write_settings
+from app.core.site_settings import read_settings, write_settings, get_sso_applications, save_sso_applications
 from app.utils.db import SessionLocal
 from app.models.db_models import AppSetting
 from app.core.plugin_db_settings import (
@@ -285,6 +285,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 "homepage_mode": get_homepage_mode(),
                 "static_pages": static_pages,
                 "nav_items": _get_static_nav_items_raw(),
+                "sso_applications": get_sso_applications(),
             },
         )
 
@@ -1411,3 +1412,48 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             )
 
     return router
+
+
+    @router.post("/admin/settings/sso-apps/save")
+    @role_required("admin")
+    async def admin_settings_sso_apps_save(
+        request: Request,
+        name: str = Form(...),
+        base_url: str = Form(...),
+        logout_url: str = Form(...),
+        is_active: str | None = Form(None),
+        app_id: str | None = Form(None)
+    ):
+        import uuid
+        apps = get_sso_applications()
+        new_id = app_id.strip() if app_id else str(uuid.uuid4())[:8]
+        active_bool = is_active is not None and is_active.lower() in ("1", "true", "on", "yes")
+        
+        updated = False
+        for a in apps:
+            if a.get("id") == new_id:
+                a["name"] = name.strip()
+                a["base_url"] = base_url.strip().rstrip("/")
+                a["logout_url"] = logout_url.strip()
+                a["is_active"] = active_bool
+                updated = True
+                break
+        
+        if not updated:
+            apps.append({
+                "id": new_id,
+                "name": name.strip(),
+                "base_url": base_url.strip().rstrip("/"),
+                "logout_url": logout_url.strip(),
+                "is_active": active_bool
+            })
+            
+        save_sso_applications(apps)
+        return RedirectResponse(url="/admin/settings?msg=Aplica%C8%9Bia+SSO+a+fost+salvat%C8%9B+cu+succes%21", status_code=303)
+
+    @router.post("/admin/settings/sso-apps/delete")
+    @role_required("admin")
+    async def admin_settings_sso_apps_delete(request: Request, app_id: str = Form(...)):
+        apps = [a for a in get_sso_applications() if a.get("id") != app_id.strip()]
+        save_sso_applications(apps)
+        return RedirectResponse(url="/admin/settings?msg=Aplica%C8%9Bia+SSO+a+fost+eliminat%C8%9B%21", status_code=303)

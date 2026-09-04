@@ -423,4 +423,112 @@
     });
   });
 </script>
+
+  <!-- SSO Connected Applications Section -->
+  <div class="card card-modern mt-4 shadow-sm" id="sso-applications-section">
+    <div class="card-body p-4">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <div>
+          <h5 class="fw-bold mb-1 d-flex align-items-center gap-2">
+            <span>🔐</span> Aplicații SSO Conectate (SSO Service Registry)
+          </h5>
+          <p class="text-secondary small mb-0">
+            Gestionați domeniile și aplicațiile auxiliare (, , ) conectate la autentificarea SSO și delogarea sincronizată (Single Sign-Out).
+          </p>
+        </div>
+        <button class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#addSsoAppModal">
+          ➕ Adaugă Aplicație SSO
+        </button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Nume Aplicație</th>
+              <th>Domeniu Principal (Base URL)</th>
+              <th>URL Logout (Single Sign-Out)</th>
+              <th>Stare</th>
+              <th class="text-end">Acțiuni</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for app in sso_applications %}
+            <tr>
+              <td>
+                <span class="fw-bold text-body">{{ app.name }}</span>
+                {% if app.id == "vlahx_repo" %}
+                <span class="badge bg-purple text-white ms-1 small">Oficial Repo</span>
+                {% endif %}
+              </td>
+              <td><code>{{ app.base_url }}</code></td>
+              <td><code>{{ app.logout_url }}</code></td>
+              <td>
+                {% if app.is_active %}
+                <span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1">🟢 Activ</span>
+                {% else %}
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-2 py-1">🔴 Inactiv</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <div class="d-inline-flex gap-1">
+                  {% if app.id != "vlahx_repo" %}
+                  <form method="post" action="/admin/settings/sso-apps/delete" onsubmit="return confirm('Sigur doriți să ștergeți această aplicație SSO?');" class="d-inline">
+                    <input type="hidden" name="app_id" value="{{ app.id }}" />
+                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" title="Șterge">🗑️</button>
+                  </form>
+                  {% else %}
+                  <span class="text-muted small italic">Sistem</span>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-3">Nu există aplicații SSO configurate.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Adăugare Aplicație SSO -->
+  <div class="modal fade" id="addSsoAppModal" tabindex="-1" aria-labelledby="addSsoAppModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4 border-0 shadow">
+        <form method="post" action="/admin/settings/sso-apps/save">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold" id="addSsoAppModalLabel">➕ Adaugă Aplicație SSO Nouă</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body p-4">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nume Aplicație / Proiect</label>
+              <input type="text" name="name" class="form-control rounded-3" placeholder="ex: Camionagiul Club" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Domeniu Principal (Base URL)</label>
+              <input type="url" name="base_url" class="form-control rounded-3" placeholder="https://camionagiul.club" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">URL Logout (Single Sign-Out Endpoint)</label>
+              <input type="url" name="logout_url" class="form-control rounded-3" placeholder="https://camionagiul.club/sso/logout" required />
+              <div class="form-text small">Endpoint-ul care distruge sesiunea pe domeniul respectiv la delogare.</div>
+            </div>
+            <div class="form-check form-switch mt-3">
+              <input class="form-check-input" type="checkbox" name="is_active" id="is_active_check" checked />
+              <label class="form-check-label fw-semibold" for="is_active_check">Aplicație Activă</label>
+            </div>
+          </div>
+          <div class="modal-footer border-0 pt-0 px-4 pb-4">
+            <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Renunță</button>
+            <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">Salvează Aplicația</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
 {% endblock %}
