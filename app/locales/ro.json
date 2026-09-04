@@ -460,5 +460,7 @@
   "admin.common.error": "Eroare",
   "admin.settings.editSsoModalTitle": "✏️ Editează Aplicația SSO",
   "admin.settings.editAppBtn": "Editare",
-  "admin.settings.deleteAppBtn": "Șterge din DB"
+  "admin.settings.deleteAppBtn": "Șterge din DB",
+  "auth.repoBannerTitle": "Acces VlahX Repository Store",
+  "auth.repoBannerDesc": "Pentru a descărca aplicații Core, pluginuri și teme de pe repo.vlahx.org, este necesară autentificarea în platforma vlahx.org."
 }

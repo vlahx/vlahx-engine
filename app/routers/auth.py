@@ -318,7 +318,7 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         if not user:
             login_next = f"/auth/sso-redirect?referrer={target_ref}" if target_ref else "/auth/sso-redirect"
             import urllib.parse
-            return RedirectResponse(url=f"/admin/login?next={urllib.parse.quote(login_next)}", status_code=303)
+            return RedirectResponse(url=f"/admin/login?next={urllib.parse.quote(login_next)}&from=repo", status_code=303)
         if not user_has_role(user, "developer", "admin", "administrator", "superadmin"):
             return RedirectResponse(url="/profile?error=developer_role_required", status_code=303)
 

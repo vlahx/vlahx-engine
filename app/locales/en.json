@@ -460,5 +460,7 @@
   "admin.common.error": "Error",
   "admin.settings.editSsoModalTitle": "✏️ Edit SSO Application",
   "admin.settings.editAppBtn": "Edit",
-  "admin.settings.deleteAppBtn": "Delete from DB"
+  "admin.settings.deleteAppBtn": "Delete from DB",
+  "auth.repoBannerTitle": "Access VlahX Repository Store",
+  "auth.repoBannerDesc": "To download Core applications, plugins, and themes from repo.vlahx.org, sign in to your vlahx.org account is required."
 }

@@ -23,6 +23,19 @@
       </div>
       {% endif %}
 
+            {% if request.query_params.get('from') == 'repo' or 'repo' in (request.query_params.get('next') or '') or 'repo' in (request.query_params.get('referrer') or '') %}
+      <div class="alert alert-info border border-info-subtle alert-dismissible fade show rounded-4 shadow-sm mb-4 text-start p-3 bg-info bg-opacity-10" role="alert">
+        <div class="d-flex align-items-center gap-3">
+          <div class="fs-2 text-info">ℹ️</div>
+          <div>
+            <h6 class="fw-bold mb-1 text-info-emphasis">{{ t('auth.repoBannerTitle', 'Acces VlahX Repository Store') }}</h6>
+            <p class="small text-body-secondary mb-0">{{ t('auth.repoBannerDesc', 'Pentru a descărca aplicații Core, pluginuri și teme de pe repo.vlahx.org, este necesară autentificarea în platforma vlahx.org.') }}</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endif %}
+
       <div class="card border-0 shadow-lg rounded-4 p-4 bg-body-tertiary border">
         <!-- Classic Email + Password Login Form -->
         <form action="/login" method="POST" class="mb-4 text-start">
