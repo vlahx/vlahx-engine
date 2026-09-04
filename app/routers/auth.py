@@ -831,11 +831,19 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
             },
         )
 
+    @router.get("/logout")
     @router.get("/auth/logout")
     @router.get("/admin/logout")
     def logout(request: Request):
+        from app.core.config import get_cookie_domain
+        domain = get_cookie_domain()
         request.session.clear()
-        return RedirectResponse(url="/", status_code=303)
+        resp = RedirectResponse(url="/", status_code=303)
+        for k in ("session", "vlahx_session", "vlahx_repo_session"):
+            resp.delete_cookie(key=k)
+            if domain:
+                resp.delete_cookie(key=k, domain=domain)
+        return resp
 
     @router.post("/profile/request-role")
     async def user_request_role(

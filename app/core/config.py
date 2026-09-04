@@ -662,3 +662,13 @@ def get_app_version() -> str:
     if isinstance(raw, str) and raw.strip():
         return raw.strip()
     return VLAHX_CORE_VERSION
+
+
+def get_cookie_domain() -> str | None:
+    cd = os.environ.get("COOKIE_DOMAIN", "").strip()
+    if cd:
+        return cd
+    pub = os.environ.get("PUBLIC_SITE_URL", "")
+    if "vlahx.org" in pub or os.environ.get("ENV") == "production":
+        return ".vlahx.org"
+    return None
