@@ -78,6 +78,8 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         users_count = db.execute(select(func.count(User.id))).scalar() or 0
         if users_count == 0:
             return RedirectResponse(url="/install", status_code=303)
+        if request.query_params.get("next"):
+            request.session["auth_next"] = request.query_params.get("next")
         bot_username = get_telegram_bot_username()
         google_client_id, _ = get_google_credentials()
         github_client_id, _ = get_github_credentials()
@@ -102,21 +104,35 @@ def build_auth_router(templates: Jinja2Templates) -> APIRouter:
         request: Request,
         email: str = Form(...),
         password: str = Form(...),
+        next: str | None = Form(None),
         db: Session = Depends(get_db)
     ):
         from app.utils.auth import verify_password
+        import urllib.parse
         email_clean = email.strip().lower()
         user = db.execute(
             select(User).where(User.email == email_clean, User.password_hash.isnot(None))
         ).scalars().first()
 
+        next_target = next or request.query_params.get("next") or request.session.get("auth_next") or ""
+        next_query = f"&next={urllib.parse.quote(next_target)}" if next_target else ""
+        from_query = "&from=repo" if ("repo" in next_target or request.query_params.get("from") == "repo") else ""
+
         if not user or not user.password_hash or not verify_password(password.strip(), user.password_hash):
-            return RedirectResponse(url="/login?err=Invalid+email+or+password.", status_code=303)
+            return RedirectResponse(url=f"/admin/login?err=Invalid+email+or+password.{next_query}{from_query}", status_code=303)
 
         if not user.email_verified:
-            return RedirectResponse(url="/login?err=Email+address+is+not+verified+yet.+Please+check+your+inbox+for+activation.", status_code=303)
+            return RedirectResponse(url=f"/admin/login?err=Email+address+is+not+verified+yet.+Please+check+your+inbox+for+activation.{next_query}{from_query}", status_code=303)
 
         request.session["user_id"] = str(user.id)
+
+        target_url = next or request.query_params.get("next") or request.session.get("auth_next")
+        if "auth_next" in request.session:
+            del request.session["auth_next"]
+
+        if target_url and (target_url.startswith("/") or target_url.startswith("http")):
+            return RedirectResponse(url=target_url, status_code=303)
+
         return RedirectResponse(url="/profile", status_code=303)
 
     @router.get("/register", response_class=HTMLResponse)
