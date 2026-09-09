@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+Jinja2
+python-multipart
+SQLAlchemy
+python-dotenv
+itsdangerous
+greenlet
+pillow
+stripe
+google-api-python-client
+google-auth
+httpx

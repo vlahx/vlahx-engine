@@ -1,15 +1,15 @@
 services:
   dev-blog:
     build: .
-    image: fastapi-blog:3.11-bookworm
+    image: dev-vlahx-engine:3.14-slim
     container_name: dev-vlahx
-    user: "1000:1000"
+    user: 1000:1000
     restart: unless-stopped
     ports:
-      - "8002:8000"
+      - 8002:8000
     environment:
-      APP_PORT: "8000"
-      APP_RELOAD: "true"
+      APP_PORT: 8000
+      APP_RELOAD: true
     volumes:
       - ./app:/app/app
       - ./db:/app/db
