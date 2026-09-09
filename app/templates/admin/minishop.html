@@ -367,7 +367,7 @@
           <div class="mb-3">
             <label class="form-label small fw-semibold">Stripe Webhook Signing Secret (whsec_...)</label>
             <input type="password" name="stripe_webhook_secret" class="form-control form-control-sm" value="{{ stripe_whsec or '' }}" placeholder="whsec_...">
-            <small class="text-secondary">URL-ul Webhook de introdus în Stripe Dashboard: <code class="user-select-all">https://camionagiul.club/shop/stripe/webhook</code></small>
+            <small class="text-secondary">URL-ul Webhook de introdus în Stripe Dashboard: <code class="user-select-all">{{ site_url or 'https://vlahx.org' }}/shop/stripe/webhook</code></small>
           </div>
           <div class="form-check mb-3">
             <input class="form-check-input" type="checkbox" name="notify_telegram" value="1" id="notifyTg" {% if notify_tg == 'true' or notify_tg == '1' %}checked{% endif %}>
