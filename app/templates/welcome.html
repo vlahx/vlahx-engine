@@ -2,39 +2,91 @@
 
 {% block content %}
 <section class="py-5">
-  <div class="container py-5 text-center">
-    <div class="d-inline-flex align-items-center gap-2 px-3 py-1 mb-3 rounded-pill bg-primary bg-opacity-10 text-primary fw-semibold small border border-primary border-opacity-25">
+  <div class="container py-4 text-center">
+    
+    <!-- Hero Badge -->
+    <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 mb-4 rounded-pill bg-primary bg-opacity-10 text-primary fw-semibold border border-primary border-opacity-25 shadow-sm">
       <span class="spinner-grow spinner-grow-sm text-primary" role="status"></span>
-      <span>VlahX Core Engine</span>
+      <span>{{ t('welcome.hero_badge', '🚀 VlahX Engine v3.0.0') }}</span>
     </div>
-    <h1 class="display-4 fw-bold text-body mb-3">{{ site_display_name() }}</h1>
-    <p class="lead text-body-secondary mx-auto mb-4" style="max-width: 680px;">
-      {{ site_tagline() }}
+
+    <!-- Hero Title & Subtitle -->
+    <h1 class="display-4 fw-bold text-body mb-3 px-md-5">
+      {{ t('welcome.hero_title', 'Ultra-Fast, Modular Web Application Engine') }}
+    </h1>
+    <p class="lead text-body-secondary mx-auto mb-4 px-md-4" style="max-width: 780px;">
+      {{ t('welcome.hero_subtitle', 'Powered by Python 3.11+, FastAPI, SQLite WAL, and Jinja2. Built for developers who demand clean architecture, native path i18n, and decoupled plugin distribution.') }}
     </p>
 
-    <!-- Homepage Notice Card -->
-    <div class="card card-modern mx-auto shadow-sm border mb-4" style="max-width: 600px;">
-      <div class="card-body p-4 text-center">
-        <div class="fs-1 mb-2">📌</div>
-        <h2 class="h5 fw-bold mb-2">Nothing yet as home page</h2>
-        <p class="text-body-secondary small mb-0">
-          Welcome to <strong>{{ site_display_name() }}</strong>! The platform is active. Use the top navigation menu to explore content or log in to customize your site.
-        </p>
-      </div>
-    </div>
-
-    {% if request.state.current_user and 'admin' in request.state.current_user.roles %}
-    <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
-      <a href="/admin/settings" class="btn btn-primary btn-lg px-4 fw-bold shadow-sm d-inline-flex align-items-center gap-2">
+    <!-- Call to Actions -->
+    <div class="d-flex flex-wrap justify-content-center gap-3 mb-5">
+      <a href="https://github.com/vlahx/vlahx-engine" target="_blank" rel="noopener" class="btn btn-primary btn-lg px-4 py-2.5 fw-bold shadow-sm d-inline-flex align-items-center gap-2 rounded-3">
+        <span>📦</span>
+        <span>{{ t('welcome.github_btn', 'GitHub Repository') }}</span>
+      </a>
+      {% if request.state.current_user and 'admin' in request.state.current_user.roles %}
+      <a href="/admin/repo" class="btn btn-outline-secondary btn-lg px-4 py-2.5 fw-bold shadow-sm d-inline-flex align-items-center gap-2 rounded-3">
+        <span>🏪</span>
+        <span>{{ t('welcome.repo_btn', 'Extension Store') }}</span>
+      </a>
+      <a href="/admin/settings" class="btn btn-outline-primary btn-lg px-4 py-2.5 fw-bold shadow-sm d-inline-flex align-items-center gap-2 rounded-3">
         <span>⚙️</span>
         <span>Admin Settings</span>
       </a>
-      <a href="/admin/repo" class="btn btn-outline-secondary btn-lg px-4 fw-bold shadow-sm d-inline-flex align-items-center gap-2">
-        <span>🏪</span>
-        <span>Repo Extension Store</span>
-      </a>
+      {% endif %}
     </div>
-    {% endif %}
+
+    <!-- Architecture Features Grid -->
+    <div class="row g-4 text-start mb-5">
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="card h-100 border shadow-sm rounded-4 p-3 bg-body-tertiary bg-opacity-50">
+          <div class="card-body p-2">
+            <div class="fs-2 mb-3">⚡</div>
+            <h3 class="h5 fw-bold mb-2">{{ t('welcome.feat_arch_title', 'Decoupled Architecture') }}</h3>
+            <p class="small text-body-secondary mb-0">
+              {{ t('welcome.feat_arch_desc', 'The Core remains 100% bare in Git. All features (Blog, Shop, AI Author, Analytics) live as decoupled plugins in the Repository.') }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="card h-100 border shadow-sm rounded-4 p-3 bg-body-tertiary bg-opacity-50">
+          <div class="card-body p-2">
+            <div class="fs-2 mb-3">🌐</div>
+            <h3 class="h5 fw-bold mb-2">{{ t('welcome.feat_seo_title', 'Native i18n & SEO') }}</h3>
+            <p class="small text-body-secondary mb-0">
+              {{ t('welcome.feat_seo_desc', 'Clean /{lang}/... path routing, dynamic <link rel="canonical"> & hreflang tags, OpenGraph cards, and dynamic XML sitemaps.') }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="card h-100 border shadow-sm rounded-4 p-3 bg-body-tertiary bg-opacity-50">
+          <div class="card-body p-2">
+            <div class="fs-2 mb-3">🚀</div>
+            <h3 class="h5 fw-bold mb-2">{{ t('welcome.feat_speed_title', 'Extreme Speed & WAL') }}</h3>
+            <p class="small text-body-secondary mb-0">
+              {{ t('welcome.feat_speed_desc', 'Maximum performance powered by FastAPI and SQLite WAL mode for instant response times and low memory footprint.') }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="card h-100 border shadow-sm rounded-4 p-3 bg-body-tertiary bg-opacity-50">
+          <div class="card-body p-2">
+            <div class="fs-2 mb-3">🧩</div>
+            <h3 class="h5 fw-bold mb-2">{{ t('welcome.feat_sdk_title', 'Developer Plugin SDK') }}</h3>
+            <p class="small text-body-secondary mb-0">
+              {{ t('welcome.feat_sdk_desc', 'Extend the UI and logic via simple template_hooks and admin_nav without touching a single line of the Core.') }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </section>
 {% endblock %}
