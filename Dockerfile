@@ -1,17 +1,9 @@
-# Imagine generică FastAPI + Jinja (blog); refolosește aceeași imagine pentru mai multe instanțe
-# (compose separat per site, volume-uri pentru db/content/static/.env).
-FROM python:3.11-slim-bookworm
+FROM python:3.14-slim
 
 WORKDIR /app
 
-# Runtime pentru Pillow (wheels) + locale minime
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        libjpeg62-turbo \
-        libopenjp2-7 \
-        libwebp7 \
-        libtiff6 \
-    && rm -rf /var/lib/apt/lists/*
+# Runtime dependencies for Pillow & web tools
+RUN apt-get update     && apt-get install -y --no-install-recommends         libjpeg62-turbo         libopenjp2-7         libwebp7         libtiff6     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
