@@ -25,7 +25,10 @@ from app.core.i18n import (
     DEFAULT_LOCALE,
     SUPPORTED_LOCALES,
     build_context,
+    build_locale_url,
+    extract_locale_and_path,
     get_available_locales,
+    get_site_default_locale,
     get_translation,
     get_translations,
     resolve_locale,
@@ -114,9 +117,9 @@ def build_templates(directory: str = "app/templates") -> Jinja2Templates:
     templates.env.globals["active_theme"] = get_active_theme
     templates.env.globals["active_theme_info"] = active_theme_info
     templates.env.globals["resolve_locale"] = resolve_locale
-    templates.env.globals["get_translations"] = get_translations
-    templates.env.globals["translate"] = lambda locale, key: get_translation(locale, key)
-    templates.env.globals.setdefault("translate", lambda locale, key: get_translation(locale, key))
+    templates.env.globals["build_locale_url"] = build_locale_url
+    templates.env.globals["get_locale_url"] = build_locale_url
+    templates.env.globals["get_site_default_locale"] = get_site_default_locale
     templates.env.globals["get_available_locales"] = get_available_locales
     templates.env.globals["get_translations"] = get_translations
     templates.env.globals["translate"] = lambda locale, key: get_translation(locale, key)
@@ -191,6 +194,8 @@ def render_template(
         requested_locale = request.query_params.get("lang", "").strip().lower()
         if requested_locale in SUPPORTED_LOCALES:
             locale = requested_locale
+    raw_canon = context.get("seo_canonical") or f"{root}{request.url.path}"
+    ctx["seo_canonical"] = build_locale_url(raw_canon, locale)
     ctx.setdefault("seo_site_name", get_site_display_name(locale))
     ctx.setdefault("seo_description", context.get("meta_description") or get_site_tagline(locale))
     ctx.setdefault("meta_description", context.get("seo_description") or get_site_tagline(locale))
@@ -233,28 +238,20 @@ def render_template(
     ctx["t_plugin"] = lambda plugin_id, key, default_val="": get_plugin_translation(plugin_id, locale, key, default_val)
     ctx["plugin_t"] = lambda plugin_id, loc, key, default_val="": get_plugin_translation(plugin_id, loc or locale, key, default_val)
     ctx["current_locale"] = locale
-    active_q_lang = ""
-    if hasattr(request, "query_params") and "lang" in request.query_params:
-        active_q_lang = request.query_params.get("lang", "").strip().lower()
-    if not active_q_lang:
-        active_q_lang = locale or "ro"
+    active_q_lang = locale or get_site_default_locale()
 
     def url_lang(path: str) -> str:
-        if not path or not isinstance(path, str):
-            return path or ""
-        if path.startswith("http://") or path.startswith("https://") or path.startswith("mailto:") or path.startswith("tel:") or path.startswith("#"):
-            return path
-        if path.startswith("/admin") or path.startswith("/static") or path.startswith("/auth") or path.startswith("/media"):
-            return path
-        if active_q_lang:
-            if "lang=" not in path:
-                sep = "&" if "?" in path else "?"
-                return f"{path}{sep}lang={active_q_lang}"
-        return path
+        return build_locale_url(path, active_q_lang)
 
     ctx["url_lang"] = url_lang
+    ctx["build_locale_url"] = build_locale_url
+    ctx["get_locale_url"] = build_locale_url
+    ctx["default_locale"] = get_site_default_locale()
     ctx["post_public_path"] = lambda slug: url_lang(post_public_path(slug))
     templates.env.globals["url_lang"] = url_lang
+    templates.env.globals["build_locale_url"] = build_locale_url
+    templates.env.globals["get_locale_url"] = build_locale_url
+    templates.env.globals["get_site_default_locale"] = get_site_default_locale
     templates.env.globals["post_public_path"] = lambda slug: url_lang(post_public_path(slug))
     cur_path = request.url.path if hasattr(request, "url") else "/"
     cur_query = ("?" + request.url.query) if hasattr(request, "url") and request.url.query else ""
@@ -279,6 +276,7 @@ def render_template(
     from app.core.template_hooks import (
         render_admin_navs,
         render_admin_top_bars,
+        render_admin_dashboards,
         render_footer_col1,
         render_footer_col2,
         render_footer_col3,
@@ -295,6 +293,7 @@ def render_template(
     )
     ctx.setdefault("plugin_area_admin_nav", render_admin_navs(request))
     ctx.setdefault("plugin_area_admin_top_bar", render_admin_top_bars(request))
+    ctx.setdefault("plugin_area_dashboard", render_admin_dashboards(request))
     ctx.setdefault("plugin_area_navbar_links", render_navbar_links(request))
     nb_search = render_navbar_search(request)
     sb_search = render_sidebar_search(request)

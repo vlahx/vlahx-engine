@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -22,8 +23,27 @@ def _get_required(name: str) -> str:
 
 
 SESSION_SECRET = (
-    os.environ.get("SESSION_SECRET", "").strip() or "vlahx-dev-shared-sso-secret-key-2026"
+    os.environ.get("SESSION_SECRET", "").strip()
 )
+
+
+def get_session_secret() -> str:
+    """Returnează un secret persistent pentru sesiuni, stocat în SQLite."""
+    if SESSION_SECRET:
+        return SESSION_SECRET
+
+    from app.utils.db import SessionLocal
+
+    key = "SESSION_SECRET"
+    with SessionLocal() as db:
+        setting = db.get(AppSetting, key)
+        if setting and setting.value:
+            return setting.value
+
+        generated = secrets.token_urlsafe(32)
+        db.add(AppSetting(key=key, value=generated))
+        db.commit()
+        return generated
 
 # URL public (https://domeniu.tld) — doar din .env (Caddy / domeniu). Folosit la OG, TinyMCE, canonice.
 # Nu se suprascrie din admin; fiecare container își are .env-ul lui.
@@ -116,7 +136,6 @@ ROOT_SLUG_BLOCKLIST = frozenset(
         "login",
         "logout",
         "newsletter",
-        "hosting",
         "blog",
         "shop",
         "cart",
@@ -259,16 +278,14 @@ def get_site_nav_icon_path() -> str:
 
 def get_homepage_mode() -> str:
     """
-    Modul primei pagini (root '/'):
-    - 'blog': lista de articole pe blog (implicit).
-    - 'page:<slug>': o pagină statică cu slug-ul respectiv.
-    - 'shop': magazinul minishop (dacă pluginul e activ).
+    Modul primei pagini (root '/').
+    Core-ul folosește pagina welcome până când un plugin declară alt mod.
     """
     d = _runtime()
     raw = d.get("HOMEPAGE_MODE")
     if isinstance(raw, str) and raw.strip():
         return raw.strip()
-    return os.environ.get("HOMEPAGE_MODE", "blog").strip() or "blog"
+    return os.environ.get("HOMEPAGE_MODE", "welcome").strip() or "welcome"
 
 
 def _runtime_static_nav_items(d: dict) -> list[dict[str, str]]:
@@ -391,50 +408,6 @@ def get_nav_fixed_post_links(locale: str | None = None, location: str | None = N
     except Exception:
         pass
 
-    # 2. Dynamic Static Pages from blog.db
-    try:
-        from app.plugins.vlahx_blog.db import BlogSessionLocal
-        from app.plugins.vlahx_blog.models import Post as PostModel, PostTranslation as PostTranslationModel
-        with BlogSessionLocal() as blog_db:
-            posts = blog_db.execute(select(PostModel).where(PostModel.draft == False)).scalars().all()
-            for p in posts:
-                placement = str(getattr(p, "nav_placement", "") or "none").strip().lower()
-                cat_name = str(getattr(p, "category", "") or "").strip().lower()
-                
-                # Check if static page placement is requested
-                if placement in ("none", "") and cat_name not in ("pages", "pagini", "static"):
-                    continue
-
-                effective_loc = placement if placement in ("navbar", "footer", "both") else "navbar"
-                if location and location.lower() != "all":
-                    loc_target = location.lower()
-                    if effective_loc != "both" and effective_loc != loc_target:
-                        continue
-
-                title = p.title
-                if locale:
-                    tr = blog_db.execute(
-                        select(PostTranslationModel).where(
-                            PostTranslationModel.post_id == p.id,
-                            PostTranslationModel.locale_code == locale
-                        )
-                    ).scalars().first()
-                    if tr and tr.title:
-                        title = tr.title
-
-                url = f"/blog/{p.slug}"
-                items.append({
-                    "slug": p.slug,
-                    "label": title,
-                    "fixed_label": title,
-                    "url": url,
-                    "href": url,
-                    "target": "_self",
-                    "location": effective_loc,
-                })
-    except Exception:
-        pass
-
     return items
 
 def get_flat_post_urls() -> bool:
@@ -486,20 +459,6 @@ def is_static_page_slug(slug: str) -> bool:
     if any(str(item.get("slug") or "").strip().lower() == s for item in _get_static_nav_items_raw()):
         return True
 
-    try:
-        from app.plugins.vlahx_blog.db import BlogSessionLocal
-        from app.plugins.vlahx_blog.models import Post as PostModel
-        from sqlalchemy import select
-        with BlogSessionLocal() as blog_db:
-            p = blog_db.execute(select(PostModel).where(PostModel.slug == s, PostModel.draft == False)).scalars().first()
-            if p:
-                placement = str(getattr(p, "nav_placement", "") or "none").strip().lower()
-                cat_name = str(getattr(p, "category", "") or "").strip().lower()
-                if placement in ("navbar", "footer", "both") or cat_name in ("pages", "pagini", "static"):
-                    return True
-    except Exception:
-        pass
-
     return False
 
 def post_public_path(slug: str) -> str:
@@ -519,25 +478,12 @@ def get_nav_fixed_post_link(locale: str | None = None) -> dict[str, str] | None:
     if not links:
         return None
     slug = links[0]["slug"]
-    from sqlalchemy import select
-
-    try:
-        from app.plugins.vlahx_blog.models import Post as PostModel
-    except ImportError:
-        return None
-    from app.utils.db import SessionLocal
-
-    with SessionLocal() as db:
-        row = db.execute(select(PostModel).where(PostModel.slug == slug)).scalars().first()
-        if row is None or bool(row.draft):
-            return None
-        label = links[0].get("label") or row.title
-        return {
-            "slug": slug,
-            "href": post_public_path(slug),
-            "label": label,
-            "fixed_label": label,
-        }
+    return {
+        "slug": slug,
+        "href": post_public_path(slug),
+        "label": links[0].get("label") or slug,
+        "fixed_label": links[0].get("label") or slug,
+    }
 
 
 def get_post_image_crop_og() -> bool:

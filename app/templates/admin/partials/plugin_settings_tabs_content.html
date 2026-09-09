@@ -104,7 +104,7 @@
                 <label class="form-label mb-0 fw-semibold text-body small">{{ t('admin.translations.selectLocale', 'Selectează limba:') }}</label>
                 <select class="form-select form-select-sm fw-bold bg-body text-body border rounded-3" id="pluginLocaleSelect" onchange="switchPluginI18nLocale(this.value)">
                     {% for loc_code in plugin_locales.keys() %}
-                    <option value="{{ loc_code }}" {% if loc_code == (selected_plugin_locale|default('ro')) %}selected{% endif %}>
+                    <option value="{{ loc_code }}" {% if loc_code == (selected_plugin_locale|default(default_site_locale|default('ro'))) %}selected{% endif %}>
                         {{ loc_code|upper }} {% if loc_code == default_site_locale %}(Default){% endif %}
                     </option>
                     {% endfor %}
@@ -117,8 +117,8 @@
             {% set clean_loc_dict = loc_dict.translations if (loc_dict is mapping and 'translations' in loc_dict) else loc_dict %}
             {% set ref_source_dict = (plugin_locales.en.translations if (plugin_locales.en is mapping and 'translations' in plugin_locales.en) else plugin_locales.en) if plugin_locales.en else ((plugin_locales.ro.translations if (plugin_locales.ro is mapping and 'translations' in plugin_locales.ro) else plugin_locales.ro) if plugin_locales.ro else clean_loc_dict) %}
             
-            <div class="plugin-i18n-locale-pane {% if loc_code != (selected_plugin_locale|default('ro')) %}d-none{% endif %}" id="plugin-i18n-pane-{{ loc_code }}">
-                <form method="post" action="/admin/plugins/{{ plugin.id if plugin else plugin_id }}/translations#tab-i18n">
+            <div class="plugin-i18n-locale-pane {% if loc_code != (selected_plugin_locale|default(default_site_locale|default('ro'))) %}d-none{% endif %}" id="plugin-i18n-pane-{{ loc_code }}">
+                <form method="post" action="/admin/plugins/{{ plugin.id if plugin else plugin_id }}/i18n/save#tab-i18n">
                     <input type="hidden" name="locale_code" value="{{ loc_code }}" />
                     
                     <div class="table-responsive border rounded-3 bg-body mb-4">

@@ -12,18 +12,27 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.core.config import SESSION_SECRET, ROOT_SLUG_BLOCKLIST, is_static_page_slug, get_flat_post_urls
-from app.core.i18n import DEFAULT_LOCALE, get_supported_locales, get_translations, resolve_locale, set_locale_cookie
+from app.core.config import ROOT_SLUG_BLOCKLIST, get_session_secret
+from app.core.i18n import (
+    DEFAULT_LOCALE,
+    EXEMPT_PREFIXES,
+    build_locale_url,
+    extract_locale_and_path,
+    get_site_default_locale,
+    get_supported_locales,
+    get_translations,
+    resolve_locale,
+    set_locale_cookie,
+)
 from app.core.plugins import load_plugins
 from app.core.templates import build_templates, render_template
 from app.routers.admin import build_admin_router
 from app.routers.install import build_install_router
 from app.routers.api import router as api_router
 from app.routers.auth import build_auth_router
-from app.routers.hosting import build_hosting_router
 from app.routers.plugin_settings import build_plugin_settings_router
 from app.routers import media
-from app.core.translation_db import ensure_default_locale
+from app.core.themes import sync_active_theme_css
 from app.utils.db import get_db, init_db, SessionLocal
 from app.models.db_models import User
 from sqlalchemy import func, select
@@ -34,13 +43,13 @@ def create_app() -> FastAPI:
     app.state.default_locale = DEFAULT_LOCALE
 
     init_db()
-    ensure_default_locale()
+    sync_active_theme_css()
 
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
     app.add_middleware(
         SessionMiddleware,
-        secret_key=SESSION_SECRET,
+        secret_key=get_session_secret(),
         same_site="lax",
         https_only=False,
     )
@@ -53,6 +62,7 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def install_and_locale_middleware(request: Request, call_next):
         path = request.url.path
+
         if not (path.startswith("/static") or path.startswith("/install") or path.startswith("/lang") or path.startswith("/.well-known")):
             try:
                 with SessionLocal() as db:
@@ -62,6 +72,42 @@ def create_app() -> FastAPI:
             except Exception:
                 pass
 
+        # Check path-based locale prefix (e.g. /ro/blog/post)
+        path_loc, unprefixed_path = extract_locale_and_path(path)
+
+        if path_loc:
+            request.state.locale = path_loc
+            request.state.translations = get_translations(path_loc)
+            request.scope["path"] = unprefixed_path or "/"
+            response = await call_next(request)
+            return response
+
+        # Check if route is exempt from locale prefixing
+        is_exempt = any(path == prefix or path.startswith(prefix + "/") for prefix in EXEMPT_PREFIXES)
+
+        if not is_exempt:
+            # Handle legacy ?lang=code or ?locale=code query parameters -> 301 Redirect to clean path URL
+            q_lang = request.query_params.get("lang") or request.query_params.get("locale")
+            if q_lang:
+                q_lang_clean = q_lang.strip().lower()
+                if q_lang_clean in get_supported_locales():
+                    import urllib.parse
+                    q_params = dict(request.query_params)
+                    q_params.pop("lang", None)
+                    q_params.pop("locale", None)
+                    new_query = urllib.parse.urlencode(q_params)
+                    clean_base = f"{path}?{new_query}" if new_query else path
+                    target_url = build_locale_url(clean_base, q_lang_clean)
+                    return RedirectResponse(url=target_url, status_code=301)
+
+            # Un-prefixed public URLs -> redirect to /{locale}{path}
+            resolved_locale = resolve_locale(request)
+            target_url = build_locale_url(path, resolved_locale)
+            # 302 for root homepage (/), 301 for subpaths
+            status_code = 302 if path in ("/", "") else 301
+            return RedirectResponse(url=target_url, status_code=status_code)
+
+        # Exempt route (admin, static, api, media, etc.)
         locale = resolve_locale(request)
         request.state.locale = locale
         request.state.translations = get_translations(locale)
@@ -72,7 +118,6 @@ def create_app() -> FastAPI:
     app.include_router(build_install_router(templates))
     app.include_router(build_admin_router(templates))
     app.include_router(build_auth_router(templates))
-    app.include_router(build_hosting_router(templates))
     app.include_router(build_plugin_settings_router(templates))
     app.include_router(media.router)
 
@@ -87,7 +132,7 @@ def create_app() -> FastAPI:
                 form_data = dict(await request.form())
             except Exception:
                 form_data = {}
-        
+
         selected = code or form_data.get("locale") or form_data.get("lang") or request.query_params.get("locale") or request.query_params.get("lang")
         selected = (selected or DEFAULT_LOCALE).strip().lower()
         if selected not in get_supported_locales():
@@ -96,7 +141,6 @@ def create_app() -> FastAPI:
         next_url = form_data.get("next") or request.query_params.get("next") or request.headers.get("referer") or "/"
         candidate = str(next_url).strip()
 
-        # Strip lang and locale query parameters from target URL to prevent URL locking
         if "?" in candidate:
             base_p, query_p = candidate.split("?", 1)
             q_params = urllib.parse.parse_qs(query_p)
@@ -105,9 +149,9 @@ def create_app() -> FastAPI:
             new_query = urllib.parse.urlencode(q_params, doseq=True)
             candidate = f"{base_p}?{new_query}" if new_query else base_p
 
-        redirect_target = "/"
-        if candidate.startswith("/") and not candidate.startswith("//"):
-            redirect_target = candidate
+        redirect_target = build_locale_url(candidate, selected)
+        if not redirect_target.startswith("/"):
+            redirect_target = f"/{selected}/"
 
         response = RedirectResponse(url=redirect_target, status_code=303)
         set_locale_cookie(response, selected)
@@ -120,35 +164,22 @@ def create_app() -> FastAPI:
     ):
         clean_slug = (slug or "").strip("/")
         if clean_slug:
-            if clean_slug not in ROOT_SLUG_BLOCKLIST and (get_flat_post_urls() or is_static_page_slug(clean_slug)):
-                try:
-                    from app.plugins.vlahx_blog.plugin import serve_blog_post
-                    return serve_blog_post(request, templates, db, clean_slug)
-                except Exception:
-                    pass
+            from app.core.template_hooks import render_public_slug
+            response = render_public_slug(request, clean_slug)
+            if response is not None:
+                return response
             raise HTTPException(status_code=404, detail="Page not found")
 
         # Root homepage (GET /)
         from app.core.config import get_homepage_mode
         hp_mode = get_homepage_mode()
 
-        if hp_mode == "blog":
-            try:
-                from app.plugins.vlahx_blog.plugin import _render_blog_index
-                from app.plugins.vlahx_blog.db import BlogSessionLocal
-                with BlogSessionLocal() as blog_db:
-                    return _render_blog_index(request, blog_db)
-            except Exception:
-                pass
-        elif hp_mode.startswith("page:"):
-            target_slug = hp_mode[5:].strip()
-            if target_slug:
-                try:
-                    from app.plugins.vlahx_blog.plugin import serve_blog_post
-                    return serve_blog_post(request, templates, db, target_slug)
-                except Exception:
-                    pass
-        elif hp_mode == "shop":
+        from app.core.template_hooks import render_homepage
+        response = render_homepage(request, hp_mode)
+        if response is not None:
+            return response
+
+        if hp_mode == "shop":
             try:
                 from app.plugins.minishop.plugin import render_shop_home
                 return render_shop_home(request)

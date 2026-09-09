@@ -67,7 +67,7 @@ def register_plugin_in_db(plugin_id: str, metadata: Optional[PluginMetadata]) ->
                 version=metadata.version if metadata else "1.0.0",
                 description=metadata.description if metadata else "",
                 author=metadata.author if metadata else "",
-                enabled=False,
+                enabled=True,
                 installed_at=datetime.now(timezone.utc)
             )
             db.add(plugin)
@@ -269,8 +269,7 @@ def list_installed_plugins():
 
 def get_plugin_admin_context(plugin_id: str, db: Any = None, extra_context: dict[str, Any] | None = None) -> dict[str, Any]:
     from app.core.config import APP_DIR
-    
-    from app.core.i18n import get_site_default_locale
+    from app.core.i18n import get_site_default_locale, get_available_locales
     
     plugins = get_installed_plugins()
     plugin = next((p for p in plugins if p.id == plugin_id), None)
@@ -279,37 +278,44 @@ def get_plugin_admin_context(plugin_id: str, db: Any = None, extra_context: dict
     metadata = load_plugin_metadata(plugin_dir)
     settings = get_plugin_settings(plugin_id)
     
-    plugin_locales: dict[str, dict[str, Any]] = {}
+    def_loc = get_site_default_locale()
+    
+    site_locales_meta = get_available_locales()
+    site_locales = [loc.get("code", "").strip().lower() for loc in site_locales_meta if isinstance(loc, dict) and loc.get("code")]
+    if def_loc not in site_locales:
+        site_locales.insert(0, def_loc)
+    
+    ordered_site_locales = sorted(list(set(site_locales)), key=lambda code: (0 if code == def_loc else 1, code))
+    
+    plugin_locales_disk: dict[str, dict[str, Any]] = {}
     locales_dir = plugin_dir / "locales"
     if locales_dir.is_dir():
         import json
         for loc_file in locales_dir.glob("*.json"):
-            loc_code = loc_file.stem
+            loc_code = loc_file.stem.lower().strip()
             try:
                 with loc_file.open("r", encoding="utf-8") as handle:
-                    plugin_locales[loc_code] = json.load(handle)
+                    data = json.load(handle)
+                    if isinstance(data, dict):
+                        plugin_locales_disk[loc_code] = data.get("translations", data) if isinstance(data.get("translations"), dict) else data
             except Exception:
                 pass
                 
-    db_overrides: dict[str, dict[str, str]] = {}
-    if db:
-        try:
-            from app.models.db_models import TranslationEntry
-            from sqlalchemy import select
-            db_entries = db.execute(
-                select(TranslationEntry).where(TranslationEntry.key.like(f"plugins.{plugin_id}.%"))
-            ).scalars().all()
-            for entry in db_entries:
-                loc_code = entry.locale_code
-                clean_key = entry.key.replace(f"plugins.{plugin_id}.", "")
-                if loc_code not in db_overrides:
-                    db_overrides[loc_code] = {}
-                db_overrides[loc_code][clean_key] = entry.value
-        except Exception:
-            pass
-
-    def_loc = get_site_default_locale()
-    sorted_locales = dict(sorted(plugin_locales.items(), key=lambda item: (0 if item[0] == def_loc else 1, item[0])))
+    known_keys: set[str] = set()
+    for loc_dict in plugin_locales_disk.values():
+        if isinstance(loc_dict, dict):
+            for k in loc_dict.keys():
+                if not k.startswith("_") and k not in ["_meta", "translations"]:
+                    known_keys.add(k)
+    final_plugin_locales: dict[str, dict[str, Any]] = {}
+    for loc_code in ordered_site_locales:
+        if loc_code in plugin_locales_disk:
+            final_plugin_locales[loc_code] = plugin_locales_disk[loc_code]
+        else:
+            blank_dict: dict[str, str] = {}
+            for k in known_keys:
+                blank_dict[k] = ""
+            final_plugin_locales[loc_code] = blank_dict
 
     ctx: dict[str, Any] = {
         "plugin": plugin,
@@ -317,9 +323,9 @@ def get_plugin_admin_context(plugin_id: str, db: Any = None, extra_context: dict
         "metadata": metadata,
         "settings": settings,
         "settings_schema": metadata.settings if metadata else {},
-        "plugin_locales": sorted_locales,
+        "plugin_locales": final_plugin_locales,
         "default_site_locale": def_loc,
-        "plugin_db_overrides": db_overrides,
+        "selected_plugin_locale": def_loc,
     }
     if extra_context:
         ctx.update(extra_context)

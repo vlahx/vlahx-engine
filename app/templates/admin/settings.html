@@ -80,7 +80,7 @@
   </ul>
 
   <!-- Main Settings Form -->
-  <form method="post" action="/admin/settings/save" id="settingsForm" novalidate>
+  <form method="post" action="/admin/settings/save" id="settingsForm" novalidate></form>
     <div class="tab-content" id="settingsTabsContent">
       
       <!-- TAB 1: GENERAL & BRANDING -->
@@ -96,7 +96,7 @@
                 </div>
                 <div style="min-width: 260px;">
                   <label class="form-label small fw-bold mb-1">{{ t('admin.settings.activeTheme', 'Select Active Theme') }}</label>
-                  <select class="form-select" name="active_theme">
+                  <select class="form-select" name="active_theme" form="settingsForm">
                     {% for t_theme in installed_themes %}
                     <option value="{{ t_theme.slug|e }}" {% if t_theme.slug == active_theme_slug %}selected{% endif %}>
                       {{ t_theme.name }} — {{ t_theme.author }}
@@ -117,11 +117,11 @@
                     </h3>
                     <div class="mb-3">
                       <label class="form-label small fw-semibold">{{ t('admin.settings.siteName', 'Site Name') }} ({{ loc.code|upper }})</label>
-                      <input class="form-control" type="text" name="site_display_name_{{ loc.code }}" value="{{ localized_site_names.get(loc.code, '') or settings_site_name }}" placeholder="Ex: VlahX Engine" />
+                      <input class="form-control" type="text" name="site_display_name_{{ loc.code }}" form="settingsForm" value="{{ localized_site_names.get(loc.code, '') or settings_site_name }}" placeholder="Ex: VlahX Engine" />
                     </div>
                     <div>
                       <label class="form-label small fw-semibold">{{ t('admin.settings.siteTagline', 'Site Tagline') }} ({{ loc.code|upper }})</label>
-                      <textarea class="form-control" name="site_tagline_{{ loc.code }}" rows="2" placeholder="Tagline for {{ loc.code }}">{{ localized_site_taglines.get(loc.code, '') or settings_site_tagline }}</textarea>
+                      <textarea class="form-control" name="site_tagline_{{ loc.code }}" form="settingsForm" rows="2" placeholder="Tagline for {{ loc.code }}">{{ localized_site_taglines.get(loc.code, '') or settings_site_tagline }}</textarea>
                     </div>
                   </div>
                 </div>
@@ -145,20 +145,14 @@
               
               <div class="row g-3 align-items-center">
                 <div class="col-12 col-md-8">
-                  <select class="form-select" name="homepage_mode">
+                  <select class="form-select" name="homepage_mode" form="settingsForm">
                     <option value="welcome" {% if homepage_mode == 'welcome' or homepage_mode == 'default' or not homepage_mode %}selected{% endif %}>
                       {{ t('admin.settings.homepageWelcomeOption', '🏠 Core Welcome Landing Page') }}
                     </option>
                     
-                    {% if is_plugin_active and is_plugin_active('vlahx_blog') %}
-                    <option value="blog" {% if homepage_mode == 'blog' %}selected{% endif %}>
-                      {{ t('admin.settings.homepageBlogFeedOption', '📚 Blog Articles Feed') }}
-                    </option>
-                    {% endif %}
-
-                    {% for sp in static_pages %}
-                    <option value="page:{{ sp.slug }}" {% if homepage_mode == 'page:' ~ sp.slug %}selected{% endif %}>
-                      {{ t('admin.settings.homepageStaticPageOption', '📄 Static Page: ') }}{{ sp.title }} (/{{ sp.slug }})
+                    {% for hp in homepage_options %}
+                    <option value="{{ hp.value }}" {% if homepage_mode == hp.value %}selected{% endif %}>
+                      {{ hp.label or hp.title }}{% if hp.slug %} (/{{ hp.slug }}){% endif %}
                     </option>
                     {% endfor %}
                   </select>
@@ -188,10 +182,10 @@
                       <span class="drag-handle text-body-secondary cursor-grab fs-5 px-1" title="{{ t('admin.settings.dragToReorder', 'Drag to reorder') }}">⋮⋮</span>
                     </div>
                     <div class="col-12 col-md-4">
-                      <input class="form-control" type="text" name="nav_url[]" value="{{ item.url }}" placeholder="{{ t('admin.settings.urlPlaceholder', 'URL (e.g. /about)') }}" />
+                      <input class="form-control" type="text" name="nav_url[]" form="settingsForm" value="{{ item.url }}" placeholder="{{ t('admin.settings.urlPlaceholder', 'URL (e.g. /about)') }}" />
                     </div>
                     <div class="col-12 col-md-3">
-                      <select class="form-select" name="nav_placement[]">
+                      <select class="form-select" name="nav_placement[]" form="settingsForm">
                         <option value="navbar" {% if item.placement == 'navbar' %}selected{% endif %}>{{ t('admin.settings.navPlacementNavbar', '🧭 Navbar') }}</option>
                         <option value="footer" {% if item.placement == 'footer' %}selected{% endif %}>{{ t('admin.settings.navPlacementFooter', '🦶 Footer') }}</option>
                         <option value="both" {% if item.placement == 'both' %}selected{% endif %}>{{ t('admin.settings.navPlacementBoth', '🌐 Both') }}</option>
@@ -212,7 +206,7 @@
                     <div class="col-12 col-md-6">
                       <div class="input-group input-group-sm">
                         <span class="input-group-text bg-body">{{ loc.code|upper }}</span>
-                        <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" value="{{ item.labels.get(loc.code, '') }}" placeholder="{{ t('admin.settings.labelFor', 'Label for') }} {{ loc.name }}" />
+                        <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" form="settingsForm" value="{{ item.labels.get(loc.code, '') }}" placeholder="{{ t('admin.settings.labelFor', 'Label for') }} {{ loc.name }}" />
                       </div>
                     </div>
                     {% endfor %}
@@ -254,15 +248,15 @@
               <div class="row g-3">
                 <div class="col-12 col-md-6">
                   <label class="form-label small fw-semibold">{{ t('admin.settings.maxEdge', 'Max Image Edge (Pixels)') }}</label>
-                  <input class="form-control" type="number" name="post_image_max_edge" value="{{ post_image_max_edge }}" placeholder="1600" />
+                  <input class="form-control" type="number" name="post_image_max_edge" form="settingsForm" value="{{ post_image_max_edge }}" placeholder="1600" />
                 </div>
                 <div class="col-12 col-md-3">
                   <label class="form-label small fw-semibold">{{ t('admin.settings.cropWidth', 'Output Width (Pixels)') }}</label>
-                  <input class="form-control" type="number" name="post_image_output_width" value="{{ post_image_output_width }}" placeholder="1200" />
+                  <input class="form-control" type="number" name="post_image_output_width" form="settingsForm" value="{{ post_image_output_width }}" placeholder="1200" />
                 </div>
                 <div class="col-12 col-md-3">
                   <label class="form-label small fw-semibold">{{ t('admin.settings.cropHeight', 'Output Height (Pixels)') }}</label>
-                  <input class="form-control" type="number" name="post_image_output_height" value="{{ post_image_output_height }}" placeholder="630" />
+                  <input class="form-control" type="number" name="post_image_output_height" form="settingsForm" value="{{ post_image_output_height }}" placeholder="630" />
                 </div>
               </div>
             </div>
@@ -344,12 +338,10 @@
 
     <!-- Save Settings Global Floating/Fixed Bar -->
     <div class="mt-4 d-flex justify-content-end">
-      <button class="btn btn-primary btn-lg rounded-pill px-5 fw-bold shadow" type="submit">
+      <button class="btn btn-primary btn-lg rounded-pill px-5 fw-bold shadow" type="submit" form="settingsForm">
         💾 {{ t('admin.settings.saveSettings', 'Save All Settings') }}
       </button>
     </div>
-  </form>
-
   <!-- Standalone Delete SSO App Form -->
   <form id="deleteSsoAppForm" method="post" action="/admin/settings/sso-apps/delete">
     <input type="hidden" name="app_id" id="delete_sso_app_id" value="" />
@@ -439,7 +431,7 @@
       <div class="col-12 col-md-6">
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-body">{{ loc.code|upper }}</span>
-          <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" placeholder="{{ t('admin.settings.labelFor', 'Label for') }} {{ loc.name }}" />
+          <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" form="settingsForm" placeholder="{{ t('admin.settings.labelFor', 'Label for') }} {{ loc.name }}" />
         </div>
       </div>
     `;
@@ -452,10 +444,10 @@
       <div class="row g-2 align-items-center">
         <div class="col-auto"><span class="drag-handle text-body-secondary cursor-grab fs-5 px-1" title="{{ t('admin.settings.dragToReorder', 'Drag to reorder') }}">⋮⋮</span></div>
         <div class="col-12 col-md-4">
-          <input class="form-control" type="text" name="nav_url[]" placeholder="{{ t('admin.settings.urlPlaceholder', 'URL (e.g. /about)') }}" />
+          <input class="form-control" type="text" name="nav_url[]" form="settingsForm" placeholder="{{ t('admin.settings.urlPlaceholder', 'URL (e.g. /about)') }}" />
         </div>
         <div class="col-12 col-md-3">
-          <select class="form-select" name="nav_placement[]">
+          <select class="form-select" name="nav_placement[]" form="settingsForm">
             <option value="navbar">{{ t('admin.settings.navPlacementNavbar', '🧭 Navbar') }}</option>
             <option value="footer">{{ t('admin.settings.navPlacementFooter', '🦶 Footer') }}</option>
             <option value="both" selected>{{ t('admin.settings.navPlacementBoth', '🌐 Both') }}</option>

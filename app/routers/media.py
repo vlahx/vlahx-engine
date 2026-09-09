@@ -191,7 +191,7 @@ async def api_upload_media(
         if not uf.filename:
             continue
 
-        raw_name = uf.filename.replace(" ", "_")
+        raw_name = Path(uf.filename).name.replace(" ", "_")
         safe_filename = f"{ts}_{idx}_{raw_name}"
         dest_file = user_media_dir / safe_filename
 

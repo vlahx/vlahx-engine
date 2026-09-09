@@ -6,14 +6,7 @@ codul din nucleu sau pluginuri emite cu ``publish``.
 
 Convenție nume: ``domeniu.verb``.
 
-Evenimente folosite acum:
-
-- ``blog.post_published`` — la prima publicare a unui articol sau la trecerea
-  ciornă → publicat. Kwargs: ``slug``, ``title``, ``excerpt``, ``post_url``,
-  ``hero_image_abs`` (URL absolut hero sau ``None``).
-
-- ``newsletter.subscribed`` — abonare nouă pe formularul /newsletter.
-  Kwargs: ``email``, ``is_new``. Emis din pluginul ``newsletter``.
+Evenimentele sunt extensibile și sunt definite de pluginurile care le emit.
 """
 
 import logging

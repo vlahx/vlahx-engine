@@ -161,7 +161,7 @@
                         <label class="form-label mb-0 fw-semibold text-body small">{{ t('admin.translations.selectLocale', 'Selectează limba:') }}</label>
                         <select class="form-select form-select-sm fw-bold bg-body text-body border rounded-3" id="pluginLocaleSelect" onchange="switchPluginI18nLocale(this.value)">
                             {% for loc_code in plugin_locales.keys() %}
-                            <option value="{{ loc_code }}" {% if loc_code == (selected_plugin_locale|default('ro')) %}selected{% endif %}>
+                            <option value="{{ loc_code }}" {% if loc_code == (selected_plugin_locale|default(default_site_locale|default('ro'))) %}selected{% endif %}>
                                 {{ loc_code|upper }} {% if loc_code == default_site_locale %}(Default){% endif %}
                             </option>
                             {% endfor %}
@@ -174,8 +174,33 @@
                     {% set clean_loc_dict = loc_dict.translations if (loc_dict is mapping and 'translations' in loc_dict) else loc_dict %}
                     {% set ref_source_dict = (plugin_locales.en.translations if (plugin_locales.en is mapping and 'translations' in plugin_locales.en) else plugin_locales.en) if plugin_locales.en else ((plugin_locales.ro.translations if (plugin_locales.ro is mapping and 'translations' in plugin_locales.ro) else plugin_locales.ro) if plugin_locales.ro else clean_loc_dict) %}
                     
-                    <div class="plugin-i18n-locale-pane {% if loc_code != (selected_plugin_locale|default('ro')) %}d-none{% endif %}" id="plugin-i18n-pane-{{ loc_code }}">
-                        <form method="post" action="/admin/plugins/{{ plugin.id }}/translations#tab-i18n">
+                    <div class="plugin-i18n-locale-pane {% if loc_code != (selected_plugin_locale|default(default_site_locale|default('ro'))) %}d-none{% endif %}" id="plugin-i18n-pane-{{ loc_code }}">
+                        <!-- ADD NEW TRANSLATION KEY FORM FOR SELECTED LOCALE -->
+                        <div class="card bg-body border p-3 rounded-3 mb-4 shadow-sm">
+                            <h6 class="fw-bold mb-3 text-body d-flex align-items-center gap-2">
+                                <span>➕</span> {{ t('admin.translations.addKeyTitle', 'Adaugă Cheie Nouă') }} ({{ loc_code|upper }})
+                            </h6>
+                            <form method="post" action="/admin/plugins/{{ plugin.id }}/i18n/add_key#tab-i18n">
+                                <input type="hidden" name="locale_code" value="{{ loc_code }}" />
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label text-body small fw-semibold">{{ t('admin.translations.keyNameLabel', 'Nume Cheie (ex: custom_key)') }}</label>
+                                        <input type="text" name="new_key" class="form-control form-control-sm text-body bg-body-tertiary" required placeholder="ex: btn_checkout">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label text-body small fw-semibold">{{ t('admin.translations.valLabel', 'Traducere') }} ({{ loc_code|upper }})</label>
+                                        <input type="text" name="new_val" class="form-control form-control-sm text-body bg-body-tertiary" required placeholder="Text traducere ({{ loc_code|upper }})">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold rounded-3">
+                                            ➕ {{ t('admin.translations.addKeyBtn', 'Adaugă') }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <form method="post" action="/admin/plugins/{{ plugin.id }}/i18n/save#tab-i18n">
                             <input type="hidden" name="locale_code" value="{{ loc_code }}" />
                             
                             <div class="table-responsive border rounded-3 bg-body mb-4">

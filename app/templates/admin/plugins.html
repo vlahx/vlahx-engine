@@ -58,9 +58,9 @@
             <tr>
               <td><code>{{ p.id|e }}</code></td>
               <td>
-                <span class="fw-bold">{{ p.name|e }}</span>
+                <span class="fw-bold">{{ t_plugin(p.id, 'plugin_name', p.name|e) }}</span>
                 {% if p.description %}
-                <div class="small text-body-secondary">{{ p.description|e }}</div>
+                <div class="small text-body-secondary">{{ t_plugin(p.id, 'plugin_desc', p.description|e) }}</div>
                 {% endif %}
               </td>
               <td>{% if p.version %}<code>v{{ p.version|e }}</code>{% else %}—{% endif %}</td>

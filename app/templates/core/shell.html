@@ -7,7 +7,7 @@
     <meta name="google-site-verification" content="dkZK9eHsQfSSPDPVBYBTtfq1NjkgQ5NbTLIwLPRqKTs" />
     <meta name="generator" content="VlahX Core 2.0 Engine" />
     {%- set _origin = request.url.scheme + '://' + request.url.netloc -%}
-    {%- set _canon = seo_canonical|default(_origin + request.url.path) -%}
+    {%- set _canon = seo_canonical|default(build_locale_url(_origin + request.url.path, locale)) -%}
     {%- set _tab_title = title|default(site_display_name() if site_display_name else 'VlahX Core') -%}
     {%- set _og_title = seo_title|default(_tab_title) -%}
     {%- set _desc_raw = (seo_description or meta_description or _og_title) -%}
@@ -18,11 +18,11 @@
     <link rel="canonical" href="{{ _canon|e }}" />
     {% if get_available_locales %}
       {% for loc in get_available_locales() %}
-        <link rel="alternate" hreflang="{{ loc.code }}" href="{{ _canon|e }}{% if not loc.is_default %}?lang={{ loc.code }}{% endif %}" />
+        {% if loc.enabled is not defined or loc.enabled %}
+        <link rel="alternate" hreflang="{{ loc.code }}" href="{{ build_locale_url(_canon, loc.code)|e }}" />
+        {% endif %}
       {% endfor %}
-    {% else %}
-      <link rel="alternate" hreflang="ro" href="{{ _canon|e }}" />
-      <link rel="alternate" hreflang="en" href="{{ _canon|e }}?lang=en" />
+      <link rel="alternate" hreflang="x-default" href="{{ build_locale_url(_canon, default_locale|default('en'))|e }}" />
     {% endif %}
     <link rel="icon" href="{{ site_favicon_rel|default(site_favicon_abs)|e }}" sizes="32x32" type="image/x-icon" />
     <link rel="shortcut icon" href="{{ site_favicon_rel|default(site_favicon_abs)|e }}" type="image/x-icon" />

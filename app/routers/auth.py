@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core import events
-from app.core.config import TELEGRAM_AUTH_URL, get_telegram_bot_username, SESSION_SECRET
+from app.core.config import TELEGRAM_AUTH_URL, get_session_secret, get_telegram_bot_username
 from app.core.templates import render_template
 from app.models.db_models import User
 from app.utils.auth import login_required, get_current_user_from_request, user_has_role
@@ -46,7 +46,7 @@ def create_sso_token(user: User, target_url: str | None = None) -> str | None:
     }
     payload_bytes = json.dumps(payload).encode('utf-8')
     b64_payload = base64.urlsafe_b64encode(payload_bytes).decode('utf-8').rstrip('=')
-    sig = hmac.new(SESSION_SECRET.encode('utf-8'), b64_payload.encode('utf-8'), hashlib.sha256).hexdigest()
+    sig = hmac.new(get_session_secret().encode('utf-8'), b64_payload.encode('utf-8'), hashlib.sha256).hexdigest()
     return f"{b64_payload}.{sig}"
 
 def get_repo_domain_url() -> str:

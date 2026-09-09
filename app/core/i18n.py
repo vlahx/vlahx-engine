@@ -87,16 +87,101 @@ def get_site_default_locale() -> str:
     return DEFAULT_LOCALE
 
 
+EXEMPT_PREFIXES = (
+    "/admin",
+    "/static",
+    "/auth",
+    "/media",
+    "/api",
+    "/.well-known",
+    "/install",
+    "/change-language",
+    "/lang",
+    "/sitemap.xml",
+    "/sitemap",
+    "/robots.txt",
+)
+
+
+def extract_locale_and_path(path: str) -> tuple[str | None, str]:
+    """
+    Extracts supported locale from path if present (e.g. '/ro/blog/post' -> ('ro', '/blog/post')).
+    If no supported locale prefix is present, returns (None, clean_unprefixed_path).
+    """
+    clean_path = "/" + str(path or "").lstrip("/")
+    for prefix in EXEMPT_PREFIXES:
+        if clean_path == prefix or clean_path.startswith(prefix + "/"):
+            return None, clean_path
+
+    parts = clean_path.strip("/").split("/")
+    if parts and parts[0]:
+        candidate = parts[0].lower()
+        if candidate in get_supported_locales():
+            rest = "/" + "/".join(parts[1:])
+            if rest != "/" and rest.endswith("/"):
+                rest = rest.rstrip("/")
+            return candidate, rest
+    return None, clean_path
+
+
+def build_locale_url(path: str, locale: str, base_url: str = "") -> str:
+    """
+    Constructs a clean path-based locale URL (e.g. '/ro/blog/post').
+    Preserves non-locale query parameters if present.
+    """
+    if not path or not isinstance(path, str):
+        return f"{base_url}/{locale}"
+    if path.startswith("mailto:") or path.startswith("tel:") or path.startswith("#"):
+        return path
+
+    url_prefix = ""
+    target_path = path
+    if target_path.startswith("http://") or target_path.startswith("https://"):
+        import urllib.parse
+        parsed = urllib.parse.urlparse(target_path)
+        url_prefix = f"{parsed.scheme}://{parsed.netloc}"
+        target_path = parsed.path or "/"
+        if parsed.query:
+            target_path += "?" + parsed.query
+
+    for prefix in EXEMPT_PREFIXES:
+        if target_path == prefix or target_path.startswith(prefix + "/") or target_path.startswith(prefix + "?"):
+            return f"{url_prefix}{target_path}"
+
+    query = ""
+    if "?" in target_path:
+        target_path, query = target_path.split("?", 1)
+        query = "?" + query
+
+    _, unprefixed = extract_locale_and_path(target_path)
+    clean_unprefixed = "/" + unprefixed.lstrip("/")
+
+    if clean_unprefixed == "/":
+        loc_path = f"/{locale}"
+    else:
+        loc_path = f"/{locale}{clean_unprefixed}"
+
+    return f"{base_url}{url_prefix}{loc_path}{query}"
+
+
 def resolve_locale(request: Request | None = None, fallback: str = DEFAULT_LOCALE) -> str:
     if request is None:
         return fallback
 
+    if hasattr(request, "state") and getattr(request.state, "locale", None):
+        return getattr(request.state, "locale")
+
     lang = None
+    if hasattr(request, "url") and hasattr(request.url, "path"):
+        path_loc, _ = extract_locale_and_path(request.url.path)
+        if path_loc:
+            lang = path_loc
+
     try:
         query_params = request.query_params
     except (AttributeError, KeyError, RuntimeError):
         query_params = None
-    if query_params:
+    if not lang and query_params:
         lang = query_params.get("lang", "").strip().lower()
 
     headers = None
@@ -115,7 +200,7 @@ def resolve_locale(request: Request | None = None, fallback: str = DEFAULT_LOCAL
         except (KeyError, RuntimeError, AttributeError):
             cookies = None
     if not lang and cookies is not None:
-        lang = cookies.get("blog_locale", "").strip().lower()
+        lang = cookies.get("site_locale", "").strip().lower()
 
     if not lang and headers is not None:
         accept_lang = headers.get("accept-language", "").strip().lower()
@@ -128,19 +213,22 @@ def resolve_locale(request: Request | None = None, fallback: str = DEFAULT_LOCAL
                     break
 
     if not lang:
-        app = getattr(request, "app", None)
+        try:
+            app = request.app
+        except (AttributeError, KeyError, RuntimeError):
+            app = None
         lang = getattr(getattr(app, "state", None), "default_locale", None)
     if not lang:
-        lang = fallback
+        lang = get_site_default_locale()
     if lang not in get_supported_locales():
-        lang = fallback
+        lang = get_site_default_locale()
     return lang
 
 
 def set_locale_cookie(response: Response, locale: str, *, path: str = "/", max_age: int = 60 * 60 * 24 * 365) -> None:
     normalized = locale if locale in get_supported_locales() else DEFAULT_LOCALE
     response.set_cookie(
-        key="blog_locale",
+        key="site_locale",
         value=normalized,
         path=path,
         max_age=max_age,
@@ -151,26 +239,9 @@ def set_locale_cookie(response: Response, locale: str, *, path: str = "/", max_a
 
 
 def get_translation(locale: str, key: str, default_val: str = "") -> str:
-    norm = (locale or DEFAULT_LOCALE).strip().lower()
-    if norm not in _IN_MEMORY_TRANSLATIONS:
-        norm = DEFAULT_LOCALE
-
-    cat = _IN_MEMORY_TRANSLATIONS.get(norm, {})
+    cat = get_translations(locale)
     if key in cat and isinstance(cat[key], str) and cat[key].strip():
         return cat[key].strip()
-
-    fb_cat = _IN_MEMORY_TRANSLATIONS.get(DEFAULT_LOCALE, {})
-    if key in fb_cat and isinstance(fb_cat[key], str) and fb_cat[key].strip():
-        return fb_cat[key].strip()
-
-    load_all_translations()
-    cat = _IN_MEMORY_TRANSLATIONS.get(norm, {})
-    if key in cat and isinstance(cat[key], str) and cat[key].strip():
-        return cat[key].strip()
-
-    fb_cat = _IN_MEMORY_TRANSLATIONS.get(DEFAULT_LOCALE, {})
-    if key in fb_cat and isinstance(fb_cat[key], str) and fb_cat[key].strip():
-        return fb_cat[key].strip()
 
     return default_val if default_val else key
 
@@ -333,11 +404,6 @@ def list_translation_catalog(locale: str) -> list[dict[str, Any]]:
 
 
 def get_plugin_translation(plugin_id: str, locale: str, key: str, default_val: str = "") -> str:
-    from app.core.translation_db import get_translation_from_db
-    db_val = get_translation_from_db(locale, f"plugins.{plugin_id}.{key}")
-    if db_val and db_val.strip():
-        return db_val.strip()
-
     def_locale = get_site_default_locale()
     norm_locale = (locale or def_locale).strip().lower()
 

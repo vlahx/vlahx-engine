@@ -60,3 +60,7 @@ repo_service/
 
 # Local maintenance scripts
 scripts/
+
+# Docker Compose configuration files (untracked to prevent env name conflicts between Dev and Prod)
+docker-compose.yml
+docker-compose.yaml

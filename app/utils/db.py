@@ -39,6 +39,11 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
 
     with SessionLocal() as db:
+        # Remove obsolete translation tables from databases created by older versions.
+        db.execute(text('DROP TABLE IF EXISTS translation_entries'))
+        db.execute(text('DROP TABLE IF EXISTS translation_locales'))
+        db.commit()
+
         res_users = db.execute(text('PRAGMA table_info(users)'))
         user_cols = [row[1] for row in res_users.fetchall()]
         cols_to_add = [
@@ -59,22 +64,6 @@ def init_db() -> None:
                     db.commit()
                 except Exception:
                     db.rollback()
-
-    with SessionLocal() as db:
-        from app.core.i18n import get_available_locales
-        from app.models.db_models import TranslationLocale as TranslationLocaleModel
-        for loc in get_available_locales():
-            code = loc['code']
-            if not db.get(TranslationLocaleModel, code):
-                db.add(TranslationLocaleModel(
-                    code=code,
-                    name=loc.get('name') or code.upper(),
-                    enabled=bool(loc.get('enabled', True)),
-                    is_default=bool(loc.get('is_default', False)),
-                ))
-        db.commit()
-
-
 
     ensure_db_permissions(DB_PATH)
 

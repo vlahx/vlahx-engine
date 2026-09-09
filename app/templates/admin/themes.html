@@ -77,14 +77,16 @@
                       {{ t('admin.themes.activateBtn', 'Activate') }}
                     </button>
                   </form>
-                  <form method="post" action="/admin/themes/delete" class="d-inline">
-                    <input type="hidden" name="slug" value="{{ t_theme.slug|e }}" />
-                    <button class="btn btn-sm btn-outline-danger"
-                            type="submit"
-                            onclick="return confirm('{{ t('admin.themes.confirmDelete', 'Are you sure you want to delete theme') }} {{ t_theme.slug }}?');">
-                      {{ t('admin.actions.delete', 'Delete') }}
-                    </button>
-                  </form>
+                  {% if not t_theme.is_builtin %}
+                    <form method="post" action="/admin/themes/delete" class="d-inline">
+                      <input type="hidden" name="slug" value="{{ t_theme.slug|e }}" />
+                      <button class="btn btn-sm btn-outline-danger"
+                              type="submit"
+                              onclick="return confirm('{{ t('admin.themes.confirmDelete', 'Are you sure you want to delete theme') }} {{ t_theme.slug }}?');">
+                        {{ t('admin.actions.delete', 'Delete') }}
+                      </button>
+                    </form>
+                  {% endif %}
                 {% endif %}
               </td>
             </tr>

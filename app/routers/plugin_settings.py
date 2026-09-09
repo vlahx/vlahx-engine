@@ -21,6 +21,7 @@ from app.utils.db import get_db
 def build_plugin_settings_router(templates) -> APIRouter:
     router = APIRouter(tags=["plugin_settings"])
 
+    @router.get("/admin/plugins/{plugin_id}", response_class=HTMLResponse)
     @router.get("/admin/plugins/{plugin_id}/settings", response_class=HTMLResponse)
     @role_required("admin")
     async def plugin_settings_page(request: Request, plugin_id: str, db: Session = Depends(get_db)):
@@ -28,8 +29,12 @@ def build_plugin_settings_router(templates) -> APIRouter:
             return RedirectResponse(url="/admin/newsletter#tab-settings", status_code=303)
         elif plugin_id == "minishop":
             return RedirectResponse(url="/admin/minishop#tab-settings", status_code=303)
-        elif plugin_id == "vlahx_blog":
-            return RedirectResponse(url="/admin/posts#tab-settings", status_code=303)
+        elif plugin_id == "comments":
+            return RedirectResponse(url="/admin/comments#tab-settings", status_code=303)
+        elif plugin_id == "devstudio":
+            return RedirectResponse(url="/admin/plugins/devstudio#tab-settings", status_code=303)
+        elif plugin_id == "google_seo":
+            return RedirectResponse(url="/admin/plugins/google_seo#tab-settings", status_code=303)
         plugins = get_installed_plugins()
         plugin = None
         for p in plugins:
@@ -42,10 +47,14 @@ def build_plugin_settings_router(templates) -> APIRouter:
         
         plugin_dir = APP_DIR / "plugins" / plugin_id
         metadata = load_plugin_metadata(plugin_dir)
-        current_settings = get_plugin_settings(plugin_id)
+        if plugin_id == "telegram_notify":
+            from app.plugins.telegram_notify.db import get_all_settings
+            current_settings = get_all_settings()
+        else:
+            current_settings = get_plugin_settings(plugin_id)
         
         custom_template = plugin_dir / "templates" / "admin" / f"{plugin_id}_settings.html"
-        custom_template_rel = f"admin/{plugin_id}_settings.html" if (custom_template.is_file() and plugin_id != "vlahx_oauth") else None
+        custom_template_rel = f"admin/{plugin_id}_settings.html" if custom_template.is_file() else None
 
         context = {
             "title": f"Setări - {plugin.name}",
@@ -59,14 +68,15 @@ def build_plugin_settings_router(templates) -> APIRouter:
         if plugin_id == "vlahx_oauth":
             try:
                 from app.utils.open_graph import public_site_origin
-                from app.plugins.vlahx_oauth.plugin import PROVIDERS, get_plugin_setting
+                from app.plugins.vlahx_oauth.plugin import PROVIDERS
+                from app.plugins.vlahx_oauth.db import get_setting
                 base_url = public_site_origin(request)
                 provider_data = {}
                 for key, p in PROVIDERS.items():
-                    enabled = get_plugin_setting(db, f"{key}_enabled", "false").strip().lower() in ("true", "1", "yes")
-                    client_id = get_plugin_setting(db, f"{key}_client_id", "")
-                    client_secret = get_plugin_setting(db, f"{key}_client_secret", "")
-                    json_credentials = get_plugin_setting(db, f"{key}_json", "")
+                    enabled = get_setting( f"{key}_enabled", "false").strip().lower() in ("true", "1", "yes")
+                    client_id = get_setting( f"{key}_client_id", "")
+                    client_secret = get_setting( f"{key}_client_secret", "")
+                    json_credentials = get_setting( f"{key}_json", "")
                     provider_data[key] = {
                         "name": p["name"],
                         "icon": p["icon"],
@@ -89,48 +99,17 @@ def build_plugin_settings_router(templates) -> APIRouter:
                 context["newsletter_subscribers"] = []
         
 
-        plugin_locales = {}
-        locales_dir = plugin_dir / "locales"
-        if locales_dir.is_dir():
-            import json
-            for loc_file in locales_dir.glob("*.json"):
-                loc_code = loc_file.stem
-                try:
-                    with loc_file.open("r", encoding="utf-8") as handle:
-                        data = json.load(handle)
-                        if isinstance(data, dict):
-                            plugin_locales[loc_code] = data.get("translations", data) if isinstance(data.get("translations"), dict) else data
-                except Exception:
-                    pass
-
-        from app.models.db_models import TranslationEntry
-        from sqlalchemy import select
-        db_entries = db.execute(
-            select(TranslationEntry).where(TranslationEntry.key.like(f"plugins.{plugin_id}.%"))
-        ).scalars().all()
-
-        db_overrides = {}
-        for entry in db_entries:
-            loc_code = entry.locale_code
-            clean_key = entry.key.replace(f"plugins.{plugin_id}.", "")
-            if loc_code not in db_overrides:
-                db_overrides[loc_code] = {}
-            db_overrides[loc_code][clean_key] = entry.value
-
-        from app.core.i18n import get_site_default_locale
-        def_loc = get_site_default_locale()
-        sorted_locales = dict(sorted(plugin_locales.items(), key=lambda item: (0 if item[0] == def_loc else 1, item[0])))
-        context["plugin_locales"] = sorted_locales
-        context["default_site_locale"] = def_loc
-        context["plugin_db_overrides"] = db_overrides
-
+        from app.core.plugin_manager import get_plugin_admin_context
+        ctx = get_plugin_admin_context(plugin_id, db, context)
+        template_name = f"admin/{plugin_id}_settings.html" if custom_template.is_file() else "admin/plugin_settings.html"
         return render_template(
             templates,
             request=request,
-            name="admin/plugin_settings.html",
-            context=context
+            name=template_name,
+            context=ctx
         )
 
+    @router.post("/admin/plugins/{plugin_id}")
     @router.post("/admin/plugins/{plugin_id}/settings")
     @role_required("admin")
     async def save_plugin_settings(request: Request, plugin_id: str, db: Session = Depends(get_db)):
@@ -152,22 +131,47 @@ def build_plugin_settings_router(templates) -> APIRouter:
                 else:
                     value = form.get(key, "").strip()
                     settings_updates[key] = value
+
+        if plugin_id == "vlahx_oauth":
+            try:
+                from app.plugins.vlahx_oauth.db import set_setting
+                from app.plugins.vlahx_oauth.plugin import PROVIDERS
+                for p_key in PROVIDERS.keys():
+                    enabled_val = "true" if form.get(f"{p_key}_enabled") else "false"
+                    client_id_val = (form.get(f"{p_key}_client_id") or "").strip()
+                    client_secret_val = (form.get(f"{p_key}_client_secret") or "").strip()
+                    json_val = (form.get(f"{p_key}_json") or "").strip()
+
+                    set_setting(f"{p_key}_enabled", enabled_val)
+                    set_setting(f"{p_key}_client_id", client_id_val)
+                    set_setting(f"{p_key}_client_secret", client_secret_val)
+                    set_setting(f"{p_key}_json", json_val)
+            except Exception as e:
+                logger.warning(f"Error saving vlahx_oauth settings: {e}")
         
         if "enabled" in form:
             enabled = form.get("enabled") == "1"
             set_plugin_enabled(plugin_id, enabled)
         
         if settings_updates:
-            set_plugin_settings(plugin_id, settings_updates)
+            if plugin_id == "telegram_notify":
+                from app.plugins.telegram_notify.db import set_setting
+                for k, v in settings_updates.items():
+                    set_setting(k, str(v))
+            else:
+                set_plugin_settings(plugin_id, settings_updates)
         
-        return HTMLResponse(
-            f"""
-            <script>
-                alert('Setările au fost salvate!');
-                window.location.href = '/admin/plugins/{plugin_id}/settings';
-            </script>
-            """
-        )
+        if plugin_id == "comments":
+            redirect_target = "/admin/comments?saved_settings=1#tab-settings"
+        elif plugin_id == "devstudio":
+            redirect_target = "/admin/plugins/devstudio?saved_settings=1#tab-settings"
+        elif plugin_id == "google_seo":
+            redirect_target = "/admin/plugins/google_seo?saved_settings=1#tab-settings"
+        elif plugin_id == "vlahx_oauth":
+            redirect_target = "/admin/plugins/vlahx_oauth/settings?saved=1#tab-providers"
+        else:
+            redirect_target = f"/admin/plugins/{plugin_id}/settings"
+        return RedirectResponse(url=redirect_target, status_code=303)
 
     @router.post("/admin/plugins/{plugin_id}/toggle")
     @role_required("admin")
@@ -232,38 +236,149 @@ def build_plugin_settings_router(templates) -> APIRouter:
         return HTMLResponse(f"<script>alert('{res_msg}'); window.location.href='/admin/plugins/newsletter/settings';</script>")
 
     @router.post("/admin/plugins/{plugin_id}/translations")
+    @router.post("/admin/plugins/{plugin_id}/i18n/save")
     @role_required("admin")
     async def save_plugin_translations(request: Request, plugin_id: str, db: Session = Depends(get_db)):
         form = await request.form()
-        from app.models.db_models import TranslationEntry
-        from sqlalchemy import select
+        import json
+        from pathlib import Path
 
+        form_locale = (form.get("locale_code") or "").strip().lower()
+
+        # Group translations by locale code
+        locale_translations: dict[str, dict[str, str]] = {}
         for form_key, form_val in form.items():
             if form_key.startswith("trans_"):
                 parts = form_key.split("_", 2)
                 if len(parts) == 3:
-                    loc_code = parts[1]
+                    loc_code = parts[1].strip().lower()
                     clean_key = parts[2]
-                    db_key = f"plugins.{plugin_id}.{clean_key}"
                     val_str = (form_val or "").strip()
 
-                    entry = db.execute(
-                        select(TranslationEntry).where(
-                            TranslationEntry.locale_code == loc_code,
-                            TranslationEntry.key == db_key
-                        )
-                    ).scalar_one_or_none()
+                    if loc_code not in locale_translations:
+                        locale_translations[loc_code] = {}
+                    locale_translations[loc_code][clean_key] = val_str
 
-                    if entry:
-                        entry.value = val_str
-                    else:
-                        entry = TranslationEntry(locale_code=loc_code, key=db_key, value=val_str)
-                        db.add(entry)
+        # Save and update the plugin's physical JSON locale files.
+        plugin_locales_dir = APP_DIR / "plugins" / plugin_id / "locales"
+        plugin_locales_dir.mkdir(parents=True, exist_ok=True)
 
-        db.commit()
-        from app.core.translation_db import invalidate_translation_cache
-        invalidate_translation_cache()
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=f"/admin/plugins/{plugin_id}/settings?saved_i18n=1#tab-i18n", status_code=303)
+        target_locales = list(locale_translations.keys())
+        if form_locale and form_locale not in target_locales:
+            target_locales.append(form_locale)
+
+        for loc_code, trans_dict in locale_translations.items():
+            loc_file = plugin_locales_dir / f"{loc_code}.json"
+            file_data: dict[str, Any] = {"_meta": {"name": loc_code.upper(), "enabled": True}, "translations": {}}
+            if loc_file.is_file():
+                try:
+                    with loc_file.open("r", encoding="utf-8") as f:
+                        existing = json.load(f)
+                        if isinstance(existing, dict):
+                            file_data = existing
+                except Exception:
+                    pass
+
+            if "translations" in file_data and isinstance(file_data["translations"], dict):
+                for k, v in trans_dict.items():
+                    file_data["translations"][k] = v
+            else:
+                for k, v in trans_dict.items():
+                    file_data[k] = v
+
+            with loc_file.open("w", encoding="utf-8") as f:
+                json.dump(file_data, f, ensure_ascii=False, indent=2)
+
+        from app.core.i18n import clear_i18n_cache
+        clear_i18n_cache()
+
+        if plugin_id == "comments":
+            redirect_i18n = "/admin/comments?saved_i18n=1#tab-i18n"
+        elif plugin_id == "devstudio":
+            redirect_i18n = "/admin/plugins/devstudio?saved_i18n=1#tab-i18n"
+        elif plugin_id == "google_seo":
+            redirect_i18n = "/admin/plugins/google_seo?saved_i18n=1#tab-i18n"
+        elif plugin_id == "minishop":
+            redirect_i18n = "/admin/minishop?saved_i18n=1#tab-i18n"
+        elif plugin_id == "newsletter":
+            redirect_i18n = "/admin/newsletter?saved_i18n=1#tab-i18n"
+        elif plugin_id == "vlahx_blog":
+            redirect_i18n = "/admin/posts?saved_i18n=1#tab-i18n"
+        else:
+            redirect_i18n = f"/admin/plugins/{plugin_id}/settings?saved_i18n=1#tab-i18n"
+        return RedirectResponse(url=redirect_i18n, status_code=303)
+
+    @router.post("/admin/plugins/{plugin_id}/i18n/add_key")
+    @role_required("admin")
+    async def add_plugin_translation_key(request: Request, plugin_id: str, db: Session = Depends(get_db)):
+        form = await request.form()
+        import json
+        from pathlib import Path
+
+        new_key = str(form.get("new_key") or "").strip().lower().replace(" ", "_")
+        locale_code = str(form.get("locale_code") or "").strip().lower() or "ro"
+        new_val = str(form.get("new_val") or form.get("new_en_val") or "").strip()
+
+        if new_key:
+            plugin_locales_dir = APP_DIR / "plugins" / plugin_id / "locales"
+            plugin_locales_dir.mkdir(parents=True, exist_ok=True)
+
+            json_files = list(plugin_locales_dir.glob("*.json"))
+            if not json_files:
+                json_files = [plugin_locales_dir / f"{locale_code}.json"]
+
+            target_file_found = False
+            for loc_file in json_files:
+                current_code = loc_file.stem.lower()
+                data: dict[str, Any] = {"_meta": {"name": current_code.upper(), "enabled": True}, "translations": {}}
+                if loc_file.is_file():
+                    try:
+                        with loc_file.open("r", encoding="utf-8") as f:
+                            parsed = json.load(f)
+                            if isinstance(parsed, dict):
+                                data = parsed
+                    except Exception:
+                        pass
+
+                trans_dict = data.get("translations", data) if isinstance(data.get("translations"), dict) else data
+
+                if current_code == locale_code:
+                    target_file_found = True
+                    val_to_set = new_val
+                else:
+                    val_to_set = trans_dict.get(new_key, new_val)
+
+                if "translations" in data and isinstance(data["translations"], dict):
+                    data["translations"][new_key] = val_to_set
+                else:
+                    data[new_key] = val_to_set
+
+                with loc_file.open("w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+
+            if not target_file_found and locale_code:
+                loc_file = plugin_locales_dir / f"{locale_code}.json"
+                data = {"_meta": {"name": locale_code.upper(), "enabled": True}, "translations": {new_key: new_val}}
+                with loc_file.open("w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+
+            from app.core.i18n import clear_i18n_cache
+            clear_i18n_cache()
+
+        if plugin_id == "comments":
+            redirect_i18n = "/admin/comments?saved_i18n=1#tab-i18n"
+        elif plugin_id == "devstudio":
+            redirect_i18n = "/admin/plugins/devstudio?saved_i18n=1#tab-i18n"
+        elif plugin_id == "google_seo":
+            redirect_i18n = "/admin/plugins/google_seo?saved_i18n=1#tab-i18n"
+        elif plugin_id == "minishop":
+            redirect_i18n = "/admin/minishop?saved_i18n=1#tab-i18n"
+        elif plugin_id == "newsletter":
+            redirect_i18n = "/admin/newsletter?saved_i18n=1#tab-i18n"
+        elif plugin_id == "vlahx_blog":
+            redirect_i18n = "/admin/posts?saved_i18n=1#tab-i18n"
+        else:
+            redirect_i18n = f"/admin/plugins/{plugin_id}/settings?saved_i18n=1#tab-i18n"
+        return RedirectResponse(url=redirect_i18n, status_code=303)
 
     return router

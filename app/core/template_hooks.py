@@ -12,6 +12,7 @@ _post_article_footer: list[tuple[int, Callable[[Any, Request], str]]] = []
 _post_header_meta: list[tuple[int, Callable[[Any, Request], str]]] = []
 _admin_nav: list[tuple[int, Callable[[Request], str]]] = []
 _admin_top_bar: list[tuple[int, Callable[[Request], str]]] = []
+_admin_dashboard: list[tuple[int, Callable[[Request], str]]] = []
 
 _footer_col1: list[tuple[int, Callable[[Request], str]]] = []
 _footer_col2: list[tuple[int, Callable[[Request], str]]] = []
@@ -27,6 +28,9 @@ _sidebar_search: list[tuple[int, Callable[[Request], str]]] = []
 _sidebar_widgets: list[tuple[int, Callable[[Request], str]]] = []
 _sidebar_bottom: list[tuple[int, Callable[[Request], str]]] = []
 _login_options: list[tuple[int, Callable[[Request], str]]] = []
+_homepage_providers: list[tuple[int, Callable[[], list[dict[str, str]]]]] = []
+_homepage_renderers: list[tuple[int, Callable[[Request, str], Any]]] = []
+_public_slug_renderers: list[tuple[int, Callable[[Request, str], Any]]] = []
 
 
 def clear_post_article_footers() -> None:
@@ -34,6 +38,7 @@ def clear_post_article_footers() -> None:
     _post_header_meta.clear()
     _admin_nav.clear()
     _admin_top_bar.clear()
+    _admin_dashboard.clear()
     _footer_col1.clear()
     _footer_col2.clear()
     _footer_col3.clear()
@@ -47,11 +52,112 @@ def clear_post_article_footers() -> None:
     _sidebar_widgets.clear()
     _sidebar_bottom.clear()
     _login_options.clear()
+    _homepage_providers.clear()
+    _homepage_renderers.clear()
+    _public_slug_renderers.clear()
+
+
+def register_homepage_provider(
+    options: Callable[[], list[dict[str, str]]],
+    renderer: Callable[[Request, str], Any],
+    slug_renderer: Callable[[Request, str], Any] | None = None,
+    *,
+    order: int = 100,
+) -> None:
+    _homepage_providers.append((order, options))
+    _homepage_renderers.append((order, renderer))
+    if slug_renderer:
+        _public_slug_renderers.append((order, slug_renderer))
+    _homepage_providers.sort(key=lambda item: item[0])
+    _homepage_renderers.sort(key=lambda item: item[0])
+    _public_slug_renderers.sort(key=lambda item: item[0])
+
+
+def get_homepage_options() -> list[dict[str, str]]:
+    options: list[dict[str, str]] = []
+    for _, provider in _homepage_providers:
+        try:
+            options.extend(item for item in (provider() or []) if isinstance(item, dict))
+        except Exception:
+            logger.exception("homepage options provider failed")
+    return options
+
+
+def render_homepage(request: Request, mode: str) -> Any | None:
+    for _, renderer in _homepage_renderers:
+        try:
+            response = renderer(request, mode)
+            if response is not None:
+                return response
+        except Exception:
+            logger.exception("homepage renderer failed")
+    return None
+
+
+def render_public_slug(request: Request, slug: str) -> Any | None:
+    for _, renderer in _public_slug_renderers:
+        try:
+            response = renderer(request, slug)
+            if response is not None:
+                return response
+        except Exception:
+            logger.exception("public slug renderer failed")
+    return None
 
 
 def register_navbar_link(renderer: Callable[[Request], str], *, order: int = 100) -> None:
     _navbar_link.append((order, renderer))
     _navbar_link.sort(key=lambda t: t[0])
+
+
+def render_weather_navbar_widget(request: Request) -> str:
+    """Renders live weather badge in public navbar with browser geolocation and OpenWeather API."""
+    return """
+    <li class="nav-item d-flex align-items-center me-2">
+      <div id="vlahx-weather-badge" class="badge bg-body-tertiary text-body border rounded-pill px-3 py-1 fw-normal d-flex align-items-center gap-2 shadow-sm" style="font-size: 0.825rem; cursor: pointer;" title="Vremea Live">
+        <span id="vw-icon">🌤️</span>
+        <span id="vw-temp" class="fw-bold">--°C</span>
+        <span id="vw-city" class="text-secondary small">--</span>
+      </div>
+      <script>
+        (function() {
+          function loadVlahXWeather(lat, lon) {
+            let url = '/api/weather';
+            if (lat && lon) url += '?lat=' + lat + '&lon=' + lon;
+            fetch(url)
+              .then(r => r.json())
+              .then(data => {
+                if (data.status === 'success') {
+                  const tEl = document.getElementById('vw-temp');
+                  const cEl = document.getElementById('vw-city');
+                  const bEl = document.getElementById('vlahx-weather-badge');
+                  if (tEl) tEl.textContent = data.temp + '°C';
+                  if (cEl) cEl.textContent = data.city;
+                  if (bEl && data.description) {
+                    bEl.title = data.description + ' (Senzație: ' + data.feels_like + '°C)';
+                  }
+                }
+              }).catch(e => console.debug('Weather widget error:', e));
+          }
+
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              pos => loadVlahXWeather(pos.coords.latitude, pos.coords.longitude),
+              err => loadVlahXWeather(null, null),
+              { timeout: 6000 }
+            );
+          } else {
+            loadVlahXWeather(null, null);
+          }
+        })();
+      </script>
+    </li>
+    """
+
+
+register_navbar_link(render_weather_navbar_widget, order=1)
+
+
 
 
 def render_navbar_links(request: Request) -> str:
@@ -150,6 +256,29 @@ def render_admin_top_bars(request: Request) -> str:
                 parts.append(chunk)
         except Exception:
             logger.exception("admin_top_bar renderer failed")
+    return "\n".join(parts)
+
+
+def register_admin_dashboard(
+    renderer: Callable[[Request], str],
+    *,
+    order: int = 100,
+) -> None:
+    if any(r is renderer or r == renderer for _, r in _admin_dashboard):
+        return
+    _admin_dashboard.append((order, renderer))
+    _admin_dashboard.sort(key=lambda t: t[0])
+
+
+def render_admin_dashboards(request: Request) -> str:
+    parts: list[str] = []
+    for _, fn in _admin_dashboard:
+        try:
+            chunk = (fn(request) or "").strip()
+            if chunk:
+                parts.append(chunk)
+        except Exception:
+            logger.exception("admin_dashboard renderer failed")
     return "\n".join(parts)
 
 

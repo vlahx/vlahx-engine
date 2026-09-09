@@ -1,8 +1,9 @@
 services:
   dev-blog:
     build: .
-    image: dev-vlahx-engine:latest
+    image: fastapi-blog:3.11-bookworm
     container_name: dev-vlahx
+    user: "1000:1000"
     restart: unless-stopped
     ports:
       - "8002:8000"

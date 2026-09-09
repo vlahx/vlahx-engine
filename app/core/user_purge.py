@@ -8,10 +8,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import APP_DIR
 from app.models.db_models import User, MediaFile
-try:
-    from app.plugins.vlahx_blog.models import Post
-except ImportError:
-    Post = None
 
 logger = logging.getLogger(__name__)
 
@@ -119,19 +115,7 @@ def purge_user_data(db: Session, user_id: int) -> bool:
     if user.image_url:
         _delete_local_user_file(user.image_url)
 
-    # 4. Reatribuire postări de autor (dacă există) către un admin de sistem
-    try:
-        user_posts = db.query(Post).filter(Post.author_id == user_id).all()
-        if user_posts:
-            admin_fallback = db.query(User).filter(User.id != user_id, User.role.like("%admin%")).first()
-            fallback_id = admin_fallback.id if admin_fallback else 1
-            for p in user_posts:
-                p.author_id = fallback_id
-            logger.info("Reatribuit %s articole ale utilizatorului %s către admin ID %s", len(user_posts), user_id, fallback_id)
-    except Exception as exc:
-        logger.warning("Eroare reatribuire postări pentru user %s: %s", user_id, exc)
-
-    # 5. Ștergere rând utilizator din tabela `users`
+    # 4. Ștergere rând utilizator din tabela `users`
     db.delete(user)
     db.commit()
 

@@ -39,6 +39,13 @@
         ⚙️ Setări & Stripe
       </button>
     </li>
+    {% if plugin_locales %}
+    <li class="nav-item">
+      <button class="nav-link fw-semibold" id="i18n-tab" data-bs-toggle="tab" data-bs-target="#tab-i18n" type="button">
+        🌐 Traduceri i18n
+      </button>
+    </li>
+    {% endif %}
   </ul>
 
   <div class="tab-content" id="minishopTabsContent">
@@ -374,6 +381,7 @@
         </form>
       </div>
     </div>
+    {% include "admin/partials/plugin_settings_tabs_content.html" %}
   </div>
 </div>
 
@@ -598,7 +606,21 @@ function toggleDigitalFileSection() {
     }
   }
 }
-document.addEventListener('DOMContentLoaded', toggleDigitalFileSection);
+document.addEventListener('DOMContentLoaded', function() {
+  toggleDigitalFileSection();
+  const hash = window.location.hash;
+  if (hash === '#tab-i18n') {
+    const i18nBtn = document.getElementById('i18n-tab');
+    if (i18nBtn) {
+      if (window.bootstrap && window.bootstrap.Tab) {
+        const tab = bootstrap.Tab.getOrCreateInstance(i18nBtn);
+        tab.show();
+      } else {
+        i18nBtn.click();
+      }
+    }
+  }
+});
 </script>
 
 

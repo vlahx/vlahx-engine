@@ -17,7 +17,7 @@
         <span class="badge text-bg-primary rounded-pill px-3 py-2 fs-6">{{ post.category }}</span>
       {% endif %}
       {% if post.author_name %}
-        <span class="text-secondary small fw-semibold">✍️ {{ t('blog.author') if t else 'Autor' }}: {{ post.author_name }}</span>
+        <span class="text-secondary small fw-semibold">✍️ {{ t_plugin('vlahx_blog', 'blog.author', t('author_label') if t else 'Autor') }}: {{ post.author_name }}</span>
       {% endif %}
       {% if post.published_at %}
         <span class="text-secondary small">📅 {{ post.published_at.strftime("%d %B %Y") }}</span>

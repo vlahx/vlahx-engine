@@ -123,7 +123,7 @@
               </div>
 
               <input type="file" id="mediaFileInput" multiple accept="*/*" class="d-none" onchange="uploadSelectedMediaFiles(this)">
-              <button type="button" class="btn btn-primary px-4 fw-semibold" onclick="openMediaUploadTab(); setTimeout(() => { const input = document.getElementById('mediaFileInput'); if (input) { input.value = ''; input.click(); } }, 120);">
+              <button type="button" class="btn btn-primary px-4 fw-semibold" onclick="openMediaUploadTab(); setTimeout(() => { var input = document.getElementById('mediaFileInput'); if (input) { input.value = ''; input.click(); } }, 120);">
                 📂 {{ t('media.modal.selectFromDevice') }}
               </button>
             </div>

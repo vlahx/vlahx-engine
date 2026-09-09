@@ -45,26 +45,6 @@ from app.core.config import (
     is_static_page_slug,
     post_public_path,
 )
-try:
-    from app.plugins.vlahx_blog.posts_db import (
-        create_category,
-        delete_category_by_id,
-        delete_post,
-        get_post,
-        list_categories,
-        list_posts,
-        save_post,
-        slugify,
-    )
-except ImportError:
-    def list_posts(*args, **kwargs): return []
-    def get_post(*args, **kwargs): return None
-    def list_categories(*args, **kwargs): return []
-    def create_category(*args, **kwargs): return None
-    def delete_category_by_id(*args, **kwargs): return False
-    def delete_post(*args, **kwargs): return False
-    def save_post(*args, **kwargs): return None
-    def slugify(text): return text.lower()
 from app.core.site_settings import read_settings, write_settings, get_sso_applications, save_sso_applications
 from app.utils.db import SessionLocal
 from app.models.db_models import AppSetting
@@ -81,7 +61,7 @@ from app.core.plugin_package import (
 from app.core.process_restart import sigterm_self_after_delay
 from app.core.site_uploads import unlink_site_upload_file
 from app.core.templates import render_template
-from app.core.themes import list_installed_themes, set_active_theme
+from app.core.themes import is_theme_installed, list_installed_themes, set_active_theme, sync_active_theme_css
 from app.core.i18n import (
     DEFAULT_LOCALE,
     get_available_locales,
@@ -199,7 +179,6 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
     @role_required("admin")
     async def admin_user_delete(request: Request, user_id: int, db: Session = Depends(get_db)):
         from app.models.db_models import User
-        from app.plugins.vlahx_blog.models import Post
         from sqlalchemy import select, func
 
         target_user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
@@ -234,23 +213,11 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         themes = list_installed_themes()
         cur_theme = get_active_theme()
         active_locales = [loc for loc in get_available_locales() if loc.get("enabled")]
+        from app.core.template_hooks import get_homepage_options
         with SessionLocal() as db:
             app_settings = {row.key: row.value for row in db.query(AppSetting).all() if row and row.key}
-            static_pages = []
-            try:
-                from app.plugins.vlahx_blog.models import Post as PostModel
-                all_posts = db.query(PostModel).filter(PostModel.draft == False).order_by(PostModel.title.asc()).all()
-                static_pages = [
-                    {"id": p.id, "slug": p.slug, "title": p.title}
-                    for p in all_posts
-                    if p.slug and (
-                        is_static_page_slug(p.slug)
-                        or (getattr(p, 'category', None) and str(p.category).lower() in ("pages", "pagini", "pagină", "page", "static"))
-                    )
-                ]
-            except Exception as e:
-                logger.debug("PostModel not loaded: %s", e)
-                static_pages = []
+        homepage_options = get_homepage_options()
+        static_pages = [item for item in homepage_options if str(item.get("value", "")).startswith("page:")]
         localized_site_names = {
             loc["code"]: (app_settings.get(f"SITE_DISPLAY_NAME_{loc['code']}") or "").strip()
             for loc in active_locales
@@ -284,6 +251,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 "active_theme_slug": cur_theme,
                 "homepage_mode": get_homepage_mode(),
                 "static_pages": static_pages,
+                "homepage_options": homepage_options,
                 "nav_items": _get_static_nav_items_raw(),
                 "sso_applications": get_sso_applications(),
             },
@@ -492,7 +460,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         Instalează o temă din zip. Returnează (slug, message).
         Așteaptă o structură de forma:
         - themes/<slug>/... (obligatoriu, cel puțin theme.json sau templates/)
-        - static/themes/<slug>/... (opțional, ex. theme.css)
+        - static/themes/<slug>/... (opțional, pentru asset-uri auxiliare)
         """
         with tempfile.TemporaryDirectory(prefix="theme-upload-") as tmp:
             zpath = pathlib.Path(tmp) / "theme.zip"
@@ -591,9 +559,11 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                         # Normal:
                         # - themes/<slug>/...
                         # - static/themes/<slug>/...
-                        if n.startswith(f"themes/{slug}/") or n.startswith(
-                            f"static/themes/{slug}/"
-                        ):
+                        if n.startswith(f"themes/{slug}/"):
+                            dest = extract_root / n
+                        elif n == f"static/themes/{slug}/theme.css":
+                            dest = extract_root / "themes" / slug / "theme.css"
+                        elif n.startswith(f"static/themes/{slug}/"):
                             dest = extract_root / n
                         else:
                             continue
@@ -603,7 +573,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                         elif n.startswith("templates/"):
                             dest = extract_root / "themes" / slug / n
                         elif n == "theme.css":
-                            dest = extract_root / "static" / "themes" / slug / "theme.css"
+                            dest = extract_root / "themes" / slug / "theme.css"
                         elif n.startswith("static/"):
                             dest = extract_root / "static" / "themes" / slug / n[len("static/"):]
                         else:
@@ -612,7 +582,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                         # slug_root: accept a single theme folder:
                         # - <slug>/theme.json              -> themes/<slug>/theme.json
                         # - <slug>/templates/...           -> themes/<slug>/templates/...
-                        # - <slug>/theme.css               -> static/themes/<slug>/theme.css
+                        # - <slug>/theme.css               -> themes/<slug>/theme.css
                         # - <slug>/static/themes/<slug>/.. -> static/themes/<slug>/...
                         if n.startswith(f"{slug}/"):
                             rel = n[len(slug) + 1 :]
@@ -621,13 +591,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                             elif rel.startswith("templates/"):
                                 dest = extract_root / "themes" / slug / rel
                             elif rel == "theme.css":
-                                dest = (
-                                    extract_root
-                                    / "static"
-                                    / "themes"
-                                    / slug
-                                    / "theme.css"
-                                )
+                                dest = extract_root / "themes" / slug / "theme.css"
                             elif rel.startswith(f"static/themes/{slug}/"):
                                 dest = extract_root / rel
                             else:
@@ -700,14 +664,16 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
 
             theme_dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(theme_src, theme_dest)
+            theme_css = theme_dest / "theme.css"
+            if not theme_css.exists():
+                theme_css.write_text(
+                    "/* This theme uses the VlahX Core stylesheet as its base. */\n",
+                    encoding="utf-8",
+                )
             static_dest.parent.mkdir(parents=True, exist_ok=True)
             static_dest.mkdir(parents=True, exist_ok=True)
             if static_src.is_dir():
                 shutil.copytree(static_src, static_dest, dirs_exist_ok=True)
-            theme_css = static_dest / "theme.css"
-            if not theme_css.exists():
-                theme_css.write_text("/* Theme CSS */", encoding="utf-8")
-
             for folder_name in ("static", "assets", "images", "css", "js", "fonts"):
                 src_folder = theme_dest / folder_name
                 if src_folder.is_dir():
@@ -722,6 +688,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                         target_sub = static_dest / folder_name
                         shutil.copytree(src_folder, target_sub, dirs_exist_ok=True)
 
+            sync_active_theme_css()
             return slug, f"Tema `{slug}` a fost instalată."
 
     @router.post("/admin/themes/upload", response_class=HTMLResponse)
@@ -783,7 +750,22 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
     async def admin_themes_activate(request: Request, slug: str = Form(...)):
         s = _safe_theme_slug(slug)
         cur_theme = get_active_theme()
-        if s and s != cur_theme:
+        if not s or not is_theme_installed(s):
+            themes = list_installed_themes()
+            return render_template(
+                templates,
+                request=request,
+                name="admin/themes.html",
+                context={
+                    "title": "Teme",
+                    "installed_themes": themes,
+                    "active_theme_slug": cur_theme,
+                    "error": "Tema selectată nu este instalată.",
+                    "message": "",
+                },
+                status_code=400,
+            )
+        if s != cur_theme:
             set_active_theme(s)
         themes = list_installed_themes()
         cur_theme = get_active_theme()
@@ -821,7 +803,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 status_code=400,
             )
 
-        if s == cur_theme:
+        if s == "minimal":
             return render_template(
                 templates,
                 request=request,
@@ -830,11 +812,15 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                     "title": "Teme",
                     "installed_themes": themes,
                     "active_theme_slug": cur_theme,
-                    "error": "Nu poți șterge tema activă în folosință!",
+                    "error": "Tema Minimal este inclusă în VlahX Core și nu poate fi ștearsă.",
                     "message": "",
                 },
                 status_code=400,
             )
+
+        if s == cur_theme:
+            set_active_theme("minimal")
+            cur_theme = "minimal"
 
         theme_dir = APP_DIR / "themes" / s
         static_dir = APP_DIR / "static" / "themes" / s
@@ -967,6 +953,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
     @role_required("admin")
     async def admin_plugins_upload(
         request: Request,
+        background_tasks: BackgroundTasks,
         file: UploadFile = File(...),
         overwrite: str | None = Form(default=None),
     ):
@@ -985,6 +972,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         try:
             _pid, msg = extract_plugin_zip(raw, overwrite=overwrite == "1")
             plugins = list_installed_plugins()
+            background_tasks.add_task(sigterm_self_after_delay)
             return render_template(
                 templates,
                 request=request,
@@ -1005,7 +993,12 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
 
     @router.post("/admin/plugins/repo/install", response_class=HTMLResponse)
     @role_required("admin")
-    async def admin_plugins_repo_install(request: Request, download_url: str = Form(...), plugin_id: str = Form(...)):
+    async def admin_plugins_repo_install(
+        request: Request,
+        background_tasks: BackgroundTasks,
+        download_url: str = Form(...),
+        plugin_id: str = Form(...),
+    ):
         from app.core.plugin_package import extract_plugin_zip
         from app.core.plugin_manager import set_plugin_enabled
         from app.core.config import get_repo_api_url
@@ -1041,7 +1034,8 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
 
             plugin_id, msg = extract_plugin_zip(data, overwrite=True)
             set_plugin_enabled(plugin_id, True)
-            safe_msg = urllib.parse.quote(f"Pluginul  a fost instalat și activat cu succes!")
+            safe_msg = urllib.parse.quote(f"Pluginul {plugin_id} a fost instalat și activat cu succes!")
+            background_tasks.add_task(sigterm_self_after_delay)
             return RedirectResponse(url=f"/admin/repo?message={safe_msg}", status_code=303)
         except Exception as e:
             logger.exception("Plugin repo install failed")
@@ -1230,7 +1224,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
 
             _save_app_setting("SITE_DISPLAY_NAME", _txt("site_display_name") or None)
             _save_app_setting("SITE_TAGLINE", _txt("site_tagline") or None)
-            _save_app_setting("HOMEPAGE_MODE", _txt("homepage_mode") or "blog")
+            _save_app_setting("HOMEPAGE_MODE", _txt("homepage_mode") or "welcome")
 
             for loc in get_available_locales():
                 code = loc.get("code")
@@ -1241,7 +1235,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             active_locales = [loc for loc in get_available_locales() if loc.get("enabled")]
             nav_urls = form.getlist("nav_url")
             nav_targets = form.getlist("nav_target")
-            nav_locations = form.getlist("nav_location")
+            nav_locations = form.getlist("nav_location") or form.getlist("nav_placement[]") or form.getlist("nav_placement")
             legacy_labels = form.getlist("nav_label")
 
             new_nav_links = []

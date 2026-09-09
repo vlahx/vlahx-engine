@@ -72,10 +72,60 @@ Open `http://localhost:8000` in your browser.
 
 ## 🐳 Docker Deployment
 
-Start the application with Docker Compose:
+Fișierul `docker-compose.yml` este exclus din Git (`.gitignore`) pentru a preveni conflictele de nume de container și porturi între mediul de **Dezvoltare (DEV)** și cel de **Producție (PROD)**.
+
+### 🛠️ Configurație Dezvoltare (`dev-vlahx` — Port 8002)
+
+Creați fișierul `docker-compose.yml` în directorul de dev (`/opt/devapp`):
+
+```yaml
+services:
+  dev-blog:
+    build: .
+    image: dev-vlahx-engine:latest
+    container_name: dev-vlahx
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    environment:
+      APP_PORT: "8000"
+      APP_RELOAD: "true"
+    volumes:
+      - ./app:/app/app
+      - ./db:/app/db
+      - ./main.py:/app/main.py
+      - ./run.py:/app/run.py
+
+```
+
+### 🚀 Configurație Producție (`vlahx` — Port 8001)
+
+Creați fișierul `docker-compose.yml` în directorul de producție (`/opt/vlahx`):
+
+```yaml
+services:
+  vlahx-blog:
+    build: .
+    image: vlahx-engine:latest
+    container_name: vlahx
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      APP_PORT: "8000"
+      APP_RELOAD: "false"
+    volumes:
+      - ./app:/app/app
+      - ./db:/app/db
+      - ./main.py:/app/main.py
+      - ./run.py:/app/run.py
+
+```
+
+Pornire container:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 ---

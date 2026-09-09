@@ -67,30 +67,6 @@ class AppSetting(Base):
     value: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
 
-class TranslationLocale(Base):
-    """Limbi disponibile pentru site și traduceri."""
-
-    __tablename__ = "translation_locales"
-
-    code: Mapped[str] = mapped_column(String(16), primary_key=True)
-    name: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-
-
-class TranslationEntry(Base):
-    """Traduceri key/value salvate în DB."""
-
-    __tablename__ = "translation_entries"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    locale_code: Mapped[str] = mapped_column(ForeignKey("translation_locales.code"), nullable=False)
-    key: Mapped[str] = mapped_column(String(255), nullable=False)
-    value: Mapped[str] = mapped_column(Text, nullable=False, default="")
-
-    __table_args__ = {"sqlite_autoincrement": True}
-
-
 class Plugin(Base):
     """
     Informații despre plugin-urile instalate și starea lor.

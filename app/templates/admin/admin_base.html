@@ -258,49 +258,49 @@
       <nav class="sidebar-menu">
 
         <!-- CORE PLATFORM -->
-        <div class="sidebar-category">Core Platform</div>
+        <div class="sidebar-category">{{ t('admin.nav.categoryCore') if t else 'Platformă Core' }}</div>
 
         <a href="/admin" class="sidebar-link {% if current_path == '/admin' or current_path == '/admin/' %}active{% endif %}">
           <span class="icon">📊</span>
-          <span class="text">{{ t('admin.nav.dashboard') if t else 'Dashboard' }}</span>
+          <span class="text">{{ t('admin.nav.dashboard') if t else 'Panou Control' }}</span>
         </a>
 
         <a href="/admin/users" class="sidebar-link {% if '/admin/users' in current_path %}active{% endif %}">
           <span class="icon">👥</span>
-          <span class="text">{{ t('admin.nav.users') if t else 'Users & Roles' }}</span>
+          <span class="text">{{ t('admin.nav.users') if t else 'Utilizatori & Roluri' }}</span>
         </a>
 
         <a href="/admin/translations" class="sidebar-link {% if '/admin/translations' in current_path %}active{% endif %}">
           <span class="icon">🌐</span>
-          <span class="text">{{ t('admin.nav.translations') if t else 'Translations' }}</span>
+          <span class="text">{{ t('admin.nav.translations') if t else 'Traduceri Sistem' }}</span>
         </a>
 
         <a href="/admin/settings" class="sidebar-link {% if '/admin/settings' in current_path %}active{% endif %}">
           <span class="icon">⚙️</span>
-          <span class="text">{{ t('admin.nav.settings') if t else 'System Settings' }}</span>
+          <span class="text">{{ t('admin.nav.settings') if t else 'Setări Sistem' }}</span>
         </a>
 
         <!-- EXTENSIONS & STORES -->
-        <div class="sidebar-category">Extensions & Stores</div>
+        <div class="sidebar-category">{{ t('admin.nav.categoryExtensions') if t else 'Extensii & Magazine' }}</div>
 
         <a href="/admin/themes" class="sidebar-link {% if '/admin/themes' in current_path %}active{% endif %}">
           <span class="icon">🎨</span>
-          <span class="text">{{ t('admin.nav.themes') if t else 'Themes' }}</span>
+          <span class="text">{{ t('admin.nav.themes') if t else 'Teme Vizuale' }}</span>
         </a>
 
         <a href="/admin/plugins" class="sidebar-link {% if current_path == '/admin/plugins' or current_path == '/admin/plugins/' %}active{% endif %}">
           <span class="icon">🔌</span>
-          <span class="text">{{ t('admin.nav.plugins') if t else 'Plugins' }}</span>
+          <span class="text">{{ t('admin.nav.plugins') if t else 'Plugin-uri' }}</span>
         </a>
 
         <a href="/admin/repo" class="sidebar-link {% if '/admin/repo' in current_path %}active{% endif %}" style="color: #a855f7;">
           <span class="icon">🏪</span>
-          <span class="text">{{ t('admin.nav.repo') if t else 'Repository Store' }}</span>
+          <span class="text">{{ t('admin.nav.repo') if t else 'Magazin Repo' }}</span>
         </a>
 
         <!-- PLUGINS DYNAMIC NAVIGATION AREA -->
         {% if plugin_area_admin_nav %}
-        <div class="sidebar-category mt-3 mb-2 px-3 text-uppercase text-secondary fw-bold small fs-7" style="letter-spacing: 0.5px;">Active Plugins</div>
+        <div class="sidebar-category mt-3 mb-2 px-3 text-uppercase text-secondary fw-bold small fs-7" style="letter-spacing: 0.5px;">{{ t('admin.nav.categoryPlugins') if t else 'Plugin-uri Active' }}</div>
         {{ plugin_area_admin_nav|safe }}
         {% endif %}
 
@@ -323,7 +323,6 @@
   {% include "partials/media_modal.html" %}
 
   <script src="/static/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/bootstrap.bundle.min.js"></script>
   <script src="/static/js/media-manager.js?v=20260903_1747"></script>
 
   <script>
