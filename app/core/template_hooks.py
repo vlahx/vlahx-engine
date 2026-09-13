@@ -483,3 +483,116 @@ def collect_sitemap_entries(request: Request) -> list[dict]:
         except Exception as e:
             logger.exception("sitemap_provider failed: %s", e)
     return entries
+
+
+_content_tree_providers: list[tuple[int, Callable[[Request], list[dict]]]] = []
+
+def register_content_tree_provider(
+    provider: Callable[[Request], list[dict]],
+    *,
+    order: int = 100,
+) -> None:
+    if any(p is provider or p == provider for _, p in _content_tree_providers):
+        logger.debug("Content tree provider already registered: %s", provider)
+        return
+
+    _content_tree_providers.append((order, provider))
+    _content_tree_providers.sort(key=lambda t: t[0])
+
+    logger.info(
+        "Registered content tree provider: %s (order=%s)",
+        provider,
+        order,
+    )
+
+
+def collect_content_trees(request: Request) -> list[dict]:
+    trees: list[dict] = []
+
+    logger.info(
+        "Collecting content trees: %d provider(s) registered",
+        len(_content_tree_providers),
+    )
+
+    for order, fn in _content_tree_providers:
+        try:
+            logger.info(
+                "Calling content tree provider: %s (order=%s)",
+                fn,
+                order,
+            )
+
+            res = fn(request)
+
+            logger.info(
+                "Content tree provider %s returned %r",
+                fn,
+                res,
+            )
+
+            if res and isinstance(res, list):
+                trees.extend(res)
+
+        except Exception as e:
+            logger.exception(
+                "content_tree_provider failed: %s",
+                e,
+            )
+
+    logger.info(
+        "Collected %d content tree(s)",
+        len(trees),
+    )
+
+    return trees
+
+
+# ---------------------------------------------------------------------------
+# Slug Resolver: allows plugins to register a function that maps slugs to
+# {slug, title, url} dicts, used e.g. for navbar dropdown link resolution.
+# ---------------------------------------------------------------------------
+_slug_resolvers: list[tuple[int, Callable[[list[str]], list[dict]]]] = []
+
+
+def register_slug_resolver(
+    resolver: Callable[[list[str]], list[dict]],
+    *,
+    order: int = 100,
+) -> None:
+    """Register a callable that receives a list of slugs and returns
+    a list of dicts with keys: slug, title, url (and optionally href)."""
+    if any(r is resolver or r == resolver for _, r in _slug_resolvers):
+        return
+    _slug_resolvers.append((order, resolver))
+    _slug_resolvers.sort(key=lambda t: t[0])
+
+
+def resolve_slugs(slugs: list[str]) -> list[dict]:
+    """Resolve a list of slugs to link dicts using registered resolvers.
+    Each resolver returns as many slugs as it can handle; unknown slugs
+    are preserved with a fallback {slug, title: slug, url: /slug}."""
+    resolved: dict[str, dict] = {}
+    for _, fn in _slug_resolvers:
+        try:
+            result = fn(slugs)
+            if result and isinstance(result, list):
+                for item in result:
+                    s = item.get("slug", "")
+                    if s:
+                        resolved[s] = item
+        except Exception as e:
+            logger.exception("slug_resolver failed: %s", e)
+    # Preserve ordering and fill in fallbacks for unresolved slugs
+    output: list[dict] = []
+    for slug in slugs:
+        if slug in resolved:
+            output.append(resolved[slug])
+        else:
+            # Fallback: slug itself as title and /slug as URL
+            output.append({
+                "slug": slug,
+                "title": slug.replace("-", " ").title(),
+                "url": f"/{slug.lstrip('/')}",
+                "href": f"/{slug.lstrip('/')}",
+            })
+    return output

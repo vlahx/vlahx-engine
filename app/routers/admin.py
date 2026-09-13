@@ -213,7 +213,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
         themes = list_installed_themes()
         cur_theme = get_active_theme()
         active_locales = [loc for loc in get_available_locales() if loc.get("enabled")]
-        from app.core.template_hooks import get_homepage_options
+        from app.core.template_hooks import get_homepage_options, collect_content_trees
         with SessionLocal() as db:
             app_settings = {row.key: row.value for row in db.query(AppSetting).all() if row and row.key}
         homepage_options = get_homepage_options()
@@ -226,6 +226,11 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
             loc["code"]: (app_settings.get(f"SITE_TAGLINE_{loc['code']}") or "").strip()
             for loc in active_locales
         }
+        content_trees = []
+        try:
+            content_trees = collect_content_trees(request)
+        except Exception:
+            pass
         return render_template(
             templates,
             request=request,
@@ -253,6 +258,7 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 "static_pages": static_pages,
                 "homepage_options": homepage_options,
                 "nav_items": _get_static_nav_items_raw(),
+                "content_trees": content_trees,
                 "sso_applications": get_sso_applications(),
             },
         )
@@ -1233,15 +1239,27 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                     _save_app_setting(f"SITE_TAGLINE_{code}", _txt(f"site_tagline_{code}") or None)
 
             active_locales = [loc for loc in get_available_locales() if loc.get("enabled")]
-            nav_urls = form.getlist("nav_url")
-            nav_targets = form.getlist("nav_target")
-            nav_locations = form.getlist("nav_location") or form.getlist("nav_placement[]") or form.getlist("nav_placement")
+
+            # ---- Collect ordered item types from hidden nav_type[] fields ----
+            nav_types = form.getlist("nav_type[]")
+            nav_urls = form.getlist("nav_url[]")
+            nav_targets = form.getlist("nav_target[]")
+            nav_locations = form.getlist("nav_placement[]")
+            # fallback for legacy field names
+            if not nav_urls:
+                nav_urls = form.getlist("nav_url")
+            if not nav_targets:
+                nav_targets = form.getlist("nav_target")
+            if not nav_locations:
+                nav_locations = form.getlist("nav_location") or form.getlist("nav_placement")
             legacy_labels = form.getlist("nav_label")
 
+            # total items determined by the number of type markers
+            n_items = max(len(nav_types), len(nav_urls))
+
             new_nav_links = []
-            for i in range(len(nav_urls)):
-                u = str(nav_urls[i] if i < len(nav_urls) else "").strip()
-                tgt = str(nav_targets[i] if i < len(nav_targets) else "_self").strip()
+            for i in range(n_items):
+                item_type = str(nav_types[i] if i < len(nav_types) else "link").strip().lower()
                 loc = str(nav_locations[i] if i < len(nav_locations) else "navbar").strip().lower()
                 if loc not in ("navbar", "footer", "both"):
                     loc = "navbar"
@@ -1249,44 +1267,66 @@ def build_admin_router(templates: Jinja2Templates) -> APIRouter:
                 labels_dict = {}
                 for loc_obj in active_locales:
                     code = loc_obj["code"]
-                    list_vals = form.getlist(f"nav_label_{code}") or form.getlist(f"nav_label_{code}[]")
+                    list_vals = form.getlist(f"nav_label_{code}[]") or form.getlist(f"nav_label_{code}")
                     val = str(list_vals[i] if i < len(list_vals) else "").strip()
                     if val:
                         labels_dict[code] = val
 
-                fallback_lbl = ""
-                if i < len(legacy_labels):
-                    fallback_lbl = str(legacy_labels[i] or "").strip()
-
                 from app.core.i18n import DEFAULT_LOCALE
-                primary_lbl = (
-                    labels_dict.get("ro")
-                    or labels_dict.get(DEFAULT_LOCALE)
-                    or (next(iter(labels_dict.values())) if labels_dict else fallback_lbl)
-                    or fallback_lbl
-                ).strip()
 
-                if not primary_lbl and not u and not labels_dict:
-                    continue
+                if item_type == "dropdown":
+                    primary_lbl = (
+                        labels_dict.get("ro")
+                        or labels_dict.get(DEFAULT_LOCALE)
+                        or (next(iter(labels_dict.values())) if labels_dict else "")
+                    ).strip()
+                    if not primary_lbl and not labels_dict:
+                        continue
+                    # collect checked slugs for this dropdown index
+                    slugs_raw = form.getlist(f"dropdown_slugs_{i}[]")
+                    slugs = [s.strip() for s in slugs_raw if s.strip()]
+                    new_nav_links.append({
+                        "type": "dropdown",
+                        "label": primary_lbl,
+                        "fixed_label": primary_lbl,
+                        "labels": labels_dict,
+                        "slugs": slugs,
+                        "location": loc,
+                    })
+                else:
+                    u = str(nav_urls[i] if i < len(nav_urls) else "").strip()
+                    tgt = str(nav_targets[i] if i < len(nav_targets) else "_self").strip()
 
-                slug = ""
-                if u and not u.startswith("/") and not u.startswith("http://") and not u.startswith("https://") and not u.startswith("#"):
-                    slug = u
-                    u = f"/{u}"
-                elif u.startswith("/"):
-                    pot_slug = u.strip("/")
-                    if "/" not in pot_slug:
-                        slug = pot_slug
+                    fallback_lbl = str(legacy_labels[i] if i < len(legacy_labels) else "").strip()
+                    primary_lbl = (
+                        labels_dict.get("ro")
+                        or labels_dict.get(DEFAULT_LOCALE)
+                        or (next(iter(labels_dict.values())) if labels_dict else fallback_lbl)
+                        or fallback_lbl
+                    ).strip()
 
-                new_nav_links.append({
-                    "label": primary_lbl,
-                    "fixed_label": primary_lbl,
-                    "labels": labels_dict,
-                    "url": u,
-                    "slug": slug,
-                    "target": tgt if tgt in ("_self", "_blank") else "_self",
-                    "location": loc,
-                })
+                    if not primary_lbl and not u and not labels_dict:
+                        continue
+
+                    slug = ""
+                    if u and not u.startswith("/") and not u.startswith("http://") and not u.startswith("https://") and not u.startswith("#"):
+                        slug = u
+                        u = f"/{u}"
+                    elif u.startswith("/"):
+                        pot_slug = u.strip("/")
+                        if "/" not in pot_slug:
+                            slug = pot_slug
+
+                    new_nav_links.append({
+                        "type": "link",
+                        "label": primary_lbl,
+                        "fixed_label": primary_lbl,
+                        "labels": labels_dict,
+                        "url": u,
+                        "slug": slug,
+                        "target": tgt if tgt in ("_self", "_blank") else "_self",
+                        "location": loc,
+                    })
 
             _save_app_setting("STATIC_NAV_LINKS", json.dumps(new_nav_links, ensure_ascii=False))
             from app.core.config import invalidate_nav_fixed_post_links_cache

@@ -169,49 +169,119 @@
                   <h2 class="h5 mb-1 fw-bold">{{ t('admin.settings.navManagerTitle', 'Navigation & Footer Links') }}</h2>
                   <p class="text-body-secondary small mb-0">{{ t('admin.settings.navManagerHelp', 'Configure custom links for Header Navbar or Footer.') }}</p>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold rounded-pill px-3" onclick="addNavRow()">
-                  {{ t('admin.settings.addLinkBtn', '➕ Add Link') }}
-                </button>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-sm btn-outline-primary fw-semibold rounded-pill px-3" onclick="addNavRow()">
+                    {{ t('admin.settings.addLinkBtn', '➕ Add Link') }}
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-success fw-semibold rounded-pill px-3" onclick="addDropdownRow()">
+                    {{ t('admin.settings.addDropdownBtn', '🔽 Add Dropdown') }}
+                  </button>
+                </div>
               </div>
 
+<!--- Select series to appear in the navbar -->
               <div id="nav-rows-container" class="vstack gap-3">
+              <div style="border: 2px solid red; padding: 10px;">
+        <strong>DEBUG</strong><br>
+        nav_items = {{ nav_items }}<br>
+        count = {{ nav_items|length }}
+    </div>
+                {# ---- Existing nav items (link or dropdown) ---- #}
                 {% for item in nav_items %}
-                <div class="p-3 border rounded-3 bg-body-tertiary nav-row" draggable="true">
-                  <div class="row g-2 align-items-center">
-                    <div class="col-auto">
-                      <span class="drag-handle text-body-secondary cursor-grab fs-5 px-1" title="{{ t('admin.settings.dragToReorder', 'Drag to reorder') }}">⋮⋮</span>
-                    </div>
-                    <div class="col-12 col-md-4">
-                      <input class="form-control" type="text" name="nav_url[]" form="settingsForm" value="{{ item.url }}" placeholder="{{ t('admin.settings.urlPlaceholder', 'URL (e.g. /about)') }}" />
-                    </div>
-                    <div class="col-12 col-md-3">
-                      <select class="form-select" name="nav_placement[]" form="settingsForm">
-                        <option value="navbar" {% if item.placement == 'navbar' %}selected{% endif %}>{{ t('admin.settings.navPlacementNavbar', '🧭 Navbar') }}</option>
-                        <option value="footer" {% if item.placement == 'footer' %}selected{% endif %}>{{ t('admin.settings.navPlacementFooter', '🦶 Footer') }}</option>
-                        <option value="both" {% if item.placement == 'both' %}selected{% endif %}>{{ t('admin.settings.navPlacementBoth', '🌐 Both') }}</option>
-                      </select>
-                    </div>
-                    <div class="col-12 col-md-4 text-end">
+                  {% set iloop = loop.index0 %}
+                  {% if item.type == 'dropdown' %}
+
+                  <div class="p-3 border rounded-3 bg-body-tertiary nav-row" draggable="true" data-nav-type="dropdown">
+                    <input type="hidden" name="nav_type[]" form="settingsForm" value="dropdown" />
+                    <input type="hidden" name="nav_placement[]" form="settingsForm" value="{{ item.location|default('navbar') }}" />
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold px-2 py-1">{{ t('admin.settings.navTypeDropdown', '🔽 Dropdown Menu') }}</span>
                       <div class="btn-group btn-group-sm">
                         <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowUp(this)" title="{{ t('admin.settings.moveUp', 'Move Up') }}">⬆️</button>
                         <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowDown(this)" title="{{ t('admin.settings.moveDown', 'Move Down') }}">⬇️</button>
                         <button type="button" class="btn btn-outline-danger" onclick="this.closest('.nav-row').remove()" title="{{ t('admin.settings.delete', 'Delete') }}">🗑️</button>
                       </div>
                     </div>
-                  </div>
+                    <div class="row g-2 mb-2">
+                      <div class="col-12"><span class="small fw-bold text-body">{{ t('admin.settings.labelsPerLanguage', '🌐 Labels per language:') }}</span></div>
 
-                  <div class="row g-2 align-items-center pt-2 border-top mt-2">
-                    <div class="col-12"><span class="small fw-bold text-body">{{ t('admin.settings.labelsPerLanguage', '🌐 Labels per language:') }}</span></div>
-                    {% for loc in active_locales %}
-                    <div class="col-12 col-md-6">
-                      <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-body">{{ loc.code|upper }}</span>
-                        <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" form="settingsForm" value="{{ item.labels.get(loc.code, '') }}" placeholder="{{ t('admin.settings.labelFor', 'Label for') }} {{ loc.name }}" />
+                      {% for loc in active_locales %}
+                      <div class="col-12 col-md-6">
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text bg-body">{{ loc.code|upper }}</span>
+                          <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" form="settingsForm"
+                                 value="{{ item.labels.get(loc.code, '') or (item.label if loop.first else '') }}"
+                                 placeholder="{{ t('admin.settings.labelFor', 'Label for') }} {{ loc.name }}" />
+                        </div>
+                      </div>
+                      {% endfor %}
+                    </div>
+                    {% if content_trees %}
+                    <div class="border rounded-3 p-2 bg-body">
+                      <p class="small fw-bold text-body mb-2">{{ t('admin.settings.selectPostsForDropdown', '📋 Select articles for this dropdown:') }}</p>
+                      {% for cat in content_trees %}
+                      <div class="mb-2">
+                        <p class="small fw-semibold text-body-secondary mb-1">📁 {{ cat.category_name }}</p>
+                        <div class="row g-1">
+                          {% for post in cat.posts %}
+                          <div class="col-12 col-md-6">
+                            <div class="form-check form-check-sm">
+                              <input class="form-check-input" type="checkbox"
+                                     name="dropdown_slugs_{{ iloop }}[]"
+                                     form="settingsForm"
+                                     value="{{ post.slug }}"
+                                     {% if post.slug in item.slugs %}checked{% endif %}
+                                     id="dd_{{ iloop }}_{{ post.id }}" />
+                              <label class="form-check-label small" for="dd_{{ iloop }}_{{ post.id }}">{{ post.title }}</label>
+                            </div>
+                          </div>
+                          {% endfor %}
+                        </div>
+                      </div>
+                      {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="small text-body-secondary mt-1">{{ t('admin.settings.noContentTreeAvailable', 'ℹ️ No content providers available. Activate vlahx_blog to select articles.') }}</p>
+                    {% endif %}
+                  </div>
+                  {% else %}
+                  <div class="p-3 border rounded-3 bg-body-tertiary nav-row" draggable="true" data-nav-type="link">
+                    <input type="hidden" name="nav_type[]" form="settingsForm" value="link" />
+                    <div class="row g-2 align-items-center">
+                      <div class="col-auto">
+                        <span class="drag-handle text-body-secondary cursor-grab fs-5 px-1" title="{{ t('admin.settings.dragToReorder', 'Drag to reorder') }}">⋮⋮</span>
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <input class="form-control" type="text" name="nav_url[]" form="settingsForm" value="{{ item.url }}" placeholder="{{ t('admin.settings.urlPlaceholder', 'URL (e.g. /about)') }}" />
+                      </div>
+                      <div class="col-12 col-md-3">
+                        <select class="form-select" name="nav_placement[]" form="settingsForm">
+                          <option value="navbar" {% if item.location == 'navbar' %}selected{% endif %}>{{ t('admin.settings.navPlacementNavbar', '🧭 Navbar') }}</option>
+                          <option value="footer" {% if item.location == 'footer' %}selected{% endif %}>{{ t('admin.settings.navPlacementFooter', '🦶 Footer') }}</option>
+                          <option value="both" {% if item.location == 'both' %}selected{% endif %}>{{ t('admin.settings.navPlacementBoth', '🌐 Both') }}</option>
+                        </select>
+                      </div>
+                      <div class="col-12 col-md-4 text-end">
+                        <div class="btn-group btn-group-sm">
+                          <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowUp(this)" title="{{ t('admin.settings.moveUp', 'Move Up') }}">⬆️</button>
+                          <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowDown(this)" title="{{ t('admin.settings.moveDown', 'Move Down') }}">⬇️</button>
+                          <button type="button" class="btn btn-outline-danger" onclick="this.closest('.nav-row').remove()" title="{{ t('admin.settings.delete', 'Delete') }}">🗑️</button>
+                        </div>
                       </div>
                     </div>
-                    {% endfor %}
+                    <div class="row g-2 align-items-center pt-2 border-top mt-2">
+                      <div class="col-12"><span class="small fw-bold text-body">{{ t('admin.settings.labelsPerLanguage', '🌐 Labels per language:') }}</span></div>
+                      {% for loc in active_locales %}
+                      <div class="col-12 col-md-6">
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text bg-body">{{ loc.code|upper }}</span>
+                          <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" form="settingsForm" value="{{ item.labels.get(loc.code, '') }}" placeholder="{{ t('admin.settings.labelFor', 'Label for') }} {{ loc.name }}" />
+                        </div>
+                      </div>
+                      {% endfor %}
+                    </div>
                   </div>
-                </div>
+                  {% endif %}
                 {% endfor %}
               </div>
             </div>
@@ -440,7 +510,9 @@
     const row = document.createElement('div');
     row.className = 'p-3 border rounded-3 bg-body-tertiary nav-row position-relative';
     row.setAttribute('draggable', 'true');
+    row.setAttribute('data-nav-type', 'link');
     row.innerHTML = `
+      <input type="hidden" name="nav_type[]" form="settingsForm" value="link" />
       <div class="row g-2 align-items-center">
         <div class="col-auto"><span class="drag-handle text-body-secondary cursor-grab fs-5 px-1" title="{{ t('admin.settings.dragToReorder', 'Drag to reorder') }}">⋮⋮</span></div>
         <div class="col-12 col-md-4">
@@ -468,6 +540,93 @@
       </div>
     `;
     container.appendChild(row);
+    reindexDropdownSlugs();
+  }
+
+  function addDropdownRow() {
+    const container = document.getElementById('nav-rows-container');
+    if (!container) return;
+    const idx = container.querySelectorAll('.nav-row').length;
+
+    let localeInputsHtml = '';
+    {% for loc in active_locales %}
+    localeInputsHtml += `
+      <div class="col-12 col-md-6">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-body">{{ loc.code|upper }}</span>
+          <input class="form-control" type="text" name="nav_label_{{ loc.code }}[]" form="settingsForm" placeholder="{{ t('admin.settings.labelFor', 'Label for') }} {{ loc.name }}" />
+        </div>
+      </div>
+    `;
+    {% endfor %}
+
+    let treeHtml = '';
+    {% if content_trees %}
+    treeHtml += '<div class="border rounded-3 p-2 bg-body mt-2">';
+    treeHtml += '<p class="small fw-bold text-body mb-2">{{ t("admin.settings.selectPostsForDropdown", "📋 Select articles for this dropdown:") }}</p>';
+    {% for cat in content_trees %}
+    treeHtml += '<div class="mb-2">';
+    treeHtml += '<p class="small fw-semibold text-body-secondary mb-1">📁 {{ cat.category_name|e }}</p>';
+    treeHtml += '<div class="row g-1">';
+    {% for post in cat.posts %}
+    treeHtml += `
+      <div class="col-12 col-md-6">
+        <div class="form-check form-check-sm">
+          <input class="form-check-input" type="checkbox"
+                 name="dropdown_slugs_${idx}[]"
+                 form="settingsForm"
+                 value="{{ post.slug|e }}"
+                 id="dd_${idx}_{{ post.id }}" />
+          <label class="form-check-label small" for="dd_${idx}_{{ post.id }}">{{ post.title|e }}</label>
+        </div>
+      </div>
+    `;
+    {% endfor %}
+    treeHtml += '</div></div>';
+    {% endfor %}
+    treeHtml += '</div>';
+    {% else %}
+    treeHtml = '<p class="small text-body-secondary mt-1">{{ t("admin.settings.noContentTreeAvailable", "ℹ️ No content providers available. Activate vlahx_blog to select articles.") }}</p>';
+    {% endif %}
+
+    const row = document.createElement('div');
+    row.className = 'p-3 border rounded-3 bg-body-tertiary nav-row';
+    row.setAttribute('draggable', 'true');
+    row.setAttribute('data-nav-type', 'dropdown');
+    row.innerHTML = `
+      <input type="hidden" name="nav_type[]" form="settingsForm" value="dropdown" />
+      <input type="hidden" name="nav_placement[]" form="settingsForm" value="navbar" />
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold px-2 py-1">{{ t('admin.settings.navTypeDropdown', '🔽 Dropdown Menu') }}</span>
+        <div class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowUp(this)" title="{{ t('admin.settings.moveUp', 'Move Up') }}">⬆️</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="moveNavRowDown(this)" title="{{ t('admin.settings.moveDown', 'Move Down') }}">⬇️</button>
+          <button type="button" class="btn btn-outline-danger" onclick="this.closest('.nav-row').remove(); reindexDropdownSlugs();" title="{{ t('admin.settings.delete', 'Delete') }}">🗑️</button>
+        </div>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-12"><span class="small fw-bold text-body">{{ t('admin.settings.labelsPerLanguage', '🌐 Labels per language:') }}</span></div>
+        ${localeInputsHtml}
+      </div>
+      ${treeHtml}
+    `;
+    container.appendChild(row);
+    reindexDropdownSlugs();
+  }
+
+  function reindexDropdownSlugs() {
+    // After any add/remove/move, re-assign dropdown_slugs_N[] names by current index
+    const container = document.getElementById('nav-rows-container');
+    if (!container) return;
+    let ddIdx = 0;
+    container.querySelectorAll('.nav-row').forEach(function(row, globalIdx) {
+      if (row.getAttribute('data-nav-type') === 'dropdown') {
+        row.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
+          cb.name = `dropdown_slugs_${globalIdx}[]`;
+        });
+        ddIdx++;
+      }
+    });
   }
 
   function deleteSsoApp(appId) {

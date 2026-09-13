@@ -478,5 +478,15 @@
   "admin.settings.editAppBtn": "Editare",
   "admin.settings.deleteAppBtn": "Șterge din DB",
   "auth.repoBannerTitle": "Acces VlahX Repository Store",
-  "auth.repoBannerDesc": "Pentru a descărca aplicații Core, pluginuri și teme de pe repo.vlahx.org, este necesară autentificarea în platforma vlahx.org."
+  "auth.repoBannerDesc": "Pentru a descărca aplicații Core, pluginuri și teme de pe repo.vlahx.org, este necesară autentificarea în platforma vlahx.org.",
+  "admin.settings.navAddDropdown": "➕ Adaugă Meniu Dropdown",
+  "admin.settings.navDropdownTitleRo": "Titlu Meniu (Română)",
+  "admin.settings.navDropdownTitleEn": "Titlu Meniu (Engleză)",
+  "admin.settings.navSelectPostsTree": "Selectează Articolele din Arborele pe Categorii:",
+  "admin.settings.navTypeLink": "🔗 Link Simplu",
+  "admin.settings.navTypeDropdown": "🔽 Meniu Derulant (Dropdown)",
+  "admin.settings.navNoCategories": "Nu există categorii sau articole disponibile.",
+  "admin.settings.addDropdownBtn": "🔽 Adaugă Dropdown",
+  "admin.settings.selectPostsForDropdown": "📋 Selectează articolele pentru acest dropdown:",
+  "admin.settings.noContentTreeAvailable": "ℹ️ Niciun furnizor de conținut disponibil. Activează vlahx_blog pentru a selecta articole."
 }

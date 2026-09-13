@@ -46,6 +46,29 @@
           {% endfor %}
         {% endif %}
 
+        {% if nav_dropdown_items %}
+          {% for dd in nav_dropdown_items %}
+          {% if dd.links %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle py-1 px-3 border rounded-pill bg-body-tertiary text-body fw-semibold me-1"
+               href="#" id="navdd{{ loop.index }}" role="button"
+               data-bs-toggle="dropdown" aria-expanded="false">
+              {{ dd.title or 'Menu' }}
+            </a>
+            <ul class="dropdown-menu shadow border-0 rounded-3 mt-1" aria-labelledby="navdd{{ loop.index }}">
+              {% for link in dd.links %}
+              <li>
+                <a class="dropdown-item" href="{{ url_lang(link.href or link.url) }}">
+                  {{ link.title }}
+                </a>
+              </li>
+              {% endfor %}
+            </ul>
+          </li>
+          {% endif %}
+          {% endfor %}
+        {% endif %}
+
         <!-- Plugin Area for Navbar Links -->
         {% if plugin_area_navbar_links %}
           {{ plugin_area_navbar_links | safe }}

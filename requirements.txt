@@ -138,3 +138,6 @@ watchfiles==1.2.0
     # via uvicorn
 websockets==17.1
     # via uvicorn
+
+beautifulsoup4
+ddgs

@@ -478,5 +478,15 @@
   "admin.settings.editAppBtn": "Edit",
   "admin.settings.deleteAppBtn": "Delete from DB",
   "auth.repoBannerTitle": "Access VlahX Repository Store",
-  "auth.repoBannerDesc": "To download Core applications, plugins, and themes from repo.vlahx.org, sign in to your vlahx.org account is required."
+  "auth.repoBannerDesc": "To download Core applications, plugins, and themes from repo.vlahx.org, sign in to your vlahx.org account is required.",
+  "admin.settings.navAddDropdown": "➕ Add Dropdown Menu",
+  "admin.settings.navDropdownTitleRo": "Menu Title (Romanian)",
+  "admin.settings.navDropdownTitleEn": "Menu Title (English)",
+  "admin.settings.navSelectPostsTree": "Select Articles from Category Tree:",
+  "admin.settings.navTypeLink": "🔗 Simple Link",
+  "admin.settings.navTypeDropdown": "🔽 Dropdown Menu",
+  "admin.settings.navNoCategories": "No categories or articles available.",
+  "admin.settings.addDropdownBtn": "🔽 Add Dropdown",
+  "admin.settings.selectPostsForDropdown": "📋 Select articles for this dropdown:",
+  "admin.settings.noContentTreeAvailable": "ℹ️ No content providers available. Activate vlahx_blog to select articles."
 }

@@ -288,9 +288,9 @@ def get_homepage_mode() -> str:
     return os.environ.get("HOMEPAGE_MODE", "welcome").strip() or "welcome"
 
 
-def _runtime_static_nav_items(d: dict) -> list[dict[str, str]]:
+def _runtime_static_nav_items(d: dict) -> list[dict]:
     raw_links = d.get("STATIC_NAV_LINKS")
-    items: list[dict[str, str]] = []
+    items: list[dict] = []
     if isinstance(raw_links, str):
         try:
             raw_links = __import__("json").loads(raw_links)
@@ -300,31 +300,53 @@ def _runtime_static_nav_items(d: dict) -> list[dict[str, str]]:
         for item in raw_links:
             if not isinstance(item, dict):
                 continue
-            url = str(item.get("url") or item.get("href") or "").strip()
-            slug = str(item.get("slug") or item.get("value") or "").strip()
-            label = str(item.get("label") or item.get("fixed_label") or item.get("title") or slug or url).strip()
-            labels_dict = item.get("labels") if isinstance(item.get("labels"), dict) else {}
-            target = str(item.get("target") or "_self").strip()
+            item_type = str(item.get("type") or "link").strip().lower()
             loc = str(item.get("location") or "navbar").strip().lower()
             if loc not in ("navbar", "footer", "both"):
                 loc = "navbar"
-            if not label and not url and not slug and not labels_dict:
-                continue
-            items.append({
-                "slug": slug,
-                "label": label,
-                "fixed_label": label,
-                "labels": labels_dict,
-                "url": url,
-                "href": url if url else (f"/{slug.strip('/')}" if slug else "/"),
-                "target": target if target in ("_self", "_blank") else "_self",
-                "location": loc,
-            })
+            labels_dict = item.get("labels") if isinstance(item.get("labels"), dict) else {}
+
+            if item_type == "dropdown":
+                label = str(item.get("label") or item.get("fixed_label") or "").strip()
+                if not label and labels_dict:
+                    label = next(iter(labels_dict.values()), "")
+                if not label and not labels_dict:
+                    continue
+                slugs = item.get("slugs")
+                if not isinstance(slugs, list):
+                    slugs = []
+                items.append({
+                    "type": "dropdown",
+                    "label": label,
+                    "fixed_label": label,
+                    "labels": labels_dict,
+                    "slugs": slugs,
+                    "location": loc,
+                })
+            else:
+                url = str(item.get("url") or item.get("href") or "").strip()
+                slug = str(item.get("slug") or item.get("value") or "").strip()
+                label = str(item.get("label") or item.get("fixed_label") or item.get("title") or slug or url).strip()
+                target = str(item.get("target") or "_self").strip()
+                if not label and not url and not slug and not labels_dict:
+                    continue
+                items.append({
+                    "type": "link",
+                    "slug": slug,
+                    "label": label,
+                    "fixed_label": label,
+                    "labels": labels_dict,
+                    "url": url,
+                    "href": url if url else (f"/{slug.strip('/')}" if slug else "/"),
+                    "target": target if target in ("_self", "_blank") else "_self",
+                    "location": loc,
+                })
     return items
 
 
 def _get_static_nav_items_raw() -> list[dict[str, str]]:
     d = {**_runtime(), **_db_runtime()}
+
     if "STATIC_NAV_LINKS" in d:
         return _runtime_static_nav_items(d)
 
@@ -383,9 +405,11 @@ def get_nav_fixed_post_links(locale: str | None = None, location: str | None = N
     items: list[dict[str, str]] = []
     from sqlalchemy import select
 
-    # 1. Custom navigation items from settings
+    # 1. Custom navigation items from settings (only link type, not dropdown)
     try:
         for item in _get_static_nav_items_raw():
+            if str(item.get("type") or "link") == "dropdown":
+                continue  # dropdowns handled separately
             item_loc = str(item.get("location") or "navbar").strip().lower()
             if location and item_loc not in (location.lower(), "both"):
                 continue
@@ -409,6 +433,33 @@ def get_nav_fixed_post_links(locale: str | None = None, location: str | None = N
         pass
 
     return items
+
+
+def get_nav_dropdown_items(locale: str | None = None, location: str | None = None) -> list[dict]:
+    """Return resolved dropdown nav items (type=dropdown) with localized title and link list."""
+    dropdowns: list[dict] = []
+    try:
+        for item in _get_static_nav_items_raw():
+            if str(item.get("type") or "link") != "dropdown":
+                continue
+            item_loc = str(item.get("location") or "navbar").strip().lower()
+            if location and item_loc not in (location.lower(), "both"):
+                continue
+            labels_dict = item.get("labels") if isinstance(item.get("labels"), dict) else {}
+            loc_label = labels_dict.get(locale) if (locale and labels_dict.get(locale)) else None
+            title = str(loc_label or item.get("label") or item.get("fixed_label") or "").strip()
+            slugs = item.get("slugs")
+            if not isinstance(slugs, list):
+                slugs = []
+            dropdowns.append({
+                "title": title,
+                "labels": labels_dict,
+                "slugs": slugs,
+                "location": item_loc,
+            })
+    except Exception:
+        pass
+    return dropdowns
 
 def get_flat_post_urls() -> bool:
     """True → articole la /slug; False → /blog/slug."""

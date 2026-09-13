@@ -13,6 +13,7 @@ from app.core.config import (
     get_app_version,
     get_nav_fixed_post_link,
     get_nav_fixed_post_links,
+    get_nav_dropdown_items,
     get_site_brand_image_path,
     get_site_display_name,
     get_site_favicon_path,
@@ -217,6 +218,20 @@ def render_template(
     ctx.setdefault("nav_fixed_post_link", fixed_nav_posts[0] if fixed_nav_posts else None)
     ctx.setdefault("fixed_nav_posts", fixed_nav_posts)
     ctx.setdefault("footer_nav_posts", footer_nav_posts)
+    # Dropdown nav items: resolve slugs to full link objects
+    try:
+        from app.core.template_hooks import resolve_slugs
+        raw_dropdowns = get_nav_dropdown_items(locale=locale, location="navbar")
+        nav_dropdowns = []
+        for dd in raw_dropdowns:
+            resolved_links = resolve_slugs(dd.get("slugs") or [])
+            nav_dropdowns.append({
+                **dd,
+                "links": resolved_links,
+            })
+    except Exception:
+        nav_dropdowns = []
+    ctx.setdefault("nav_dropdown_items", nav_dropdowns)
     from app.utils.auth import get_current_user_from_request, user_has_role, get_user_roles
     current_user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
     if current_user:
