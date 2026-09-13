@@ -95,6 +95,7 @@ EXEMPT_PREFIXES = (
     "/api",
     "/.well-known",
     "/install",
+    "/login",
     "/change-language",
     "/lang",
     "/sitemap.xml",

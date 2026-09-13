@@ -61,6 +61,7 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def install_and_locale_middleware(request: Request, call_next):
+        print("🔥 MIDDLEWARE HIT:", request.method, request.url)
         path = request.url.path
 
         if not (path.startswith("/static") or path.startswith("/install") or path.startswith("/lang") or path.startswith("/.well-known")):
@@ -85,10 +86,20 @@ def create_app() -> FastAPI:
         # Check if route is exempt from locale prefixing
         is_exempt = any(path == prefix or path.startswith(prefix + "/") for prefix in EXEMPT_PREFIXES)
 
+        print(
+            "LOCALE DEBUG:",
+            request.method,
+            "path=", path,
+            "path_loc=", path_loc,
+            "unprefixed=", unprefixed_path,
+            "query=", str(request.query_params),
+            "is_exempt=", is_exempt,
+        )
         if not is_exempt:
             # Handle legacy ?lang=code or ?locale=code query parameters -> 301 Redirect to clean path URL
             q_lang = request.query_params.get("lang") or request.query_params.get("locale")
             if q_lang:
+                print("LEGACY LANG REDIRECT:", path, request.query_params)
                 q_lang_clean = q_lang.strip().lower()
                 if q_lang_clean in get_supported_locales():
                     import urllib.parse
