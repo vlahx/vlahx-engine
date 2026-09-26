@@ -211,6 +211,7 @@ def render_template(
     for item in get_nav_fixed_post_links(locale=locale, location="navbar"):
         if item.get("label") or item.get("url") or item.get("slug"):
             fixed_nav_posts.append(item)
+
     footer_nav_posts = []
     for item in get_nav_fixed_post_links(locale=locale, location="footer"):
         if item.get("label") or item.get("url") or item.get("slug"):
@@ -219,18 +220,24 @@ def render_template(
     ctx.setdefault("fixed_nav_posts", fixed_nav_posts)
     ctx.setdefault("footer_nav_posts", footer_nav_posts)
     # Dropdown nav items: resolve slugs to full link objects
+    # Dropdown nav items: resolve slugs to full link objects
     try:
         from app.core.template_hooks import resolve_slugs
+
         raw_dropdowns = get_nav_dropdown_items(locale=locale, location="navbar")
         nav_dropdowns = []
+
         for dd in raw_dropdowns:
             resolved_links = resolve_slugs(dd.get("slugs") or [])
+
             nav_dropdowns.append({
                 **dd,
                 "links": resolved_links,
             })
+
     except Exception:
         nav_dropdowns = []
+
     ctx.setdefault("nav_dropdown_items", nav_dropdowns)
     from app.utils.auth import get_current_user_from_request, user_has_role, get_user_roles
     current_user = getattr(request.state, "current_user", None) or get_current_user_from_request(request)
@@ -322,6 +329,7 @@ def render_template(
     ctx.setdefault("plugin_area_search", sb_search or nb_search)
     ctx.setdefault("plugin_area_footer_col1", render_footer_col1(request))
     ctx.setdefault("plugin_area_footer_col2", render_footer_col2(request))
+
     ctx.setdefault("plugin_area_footer_col3", render_footer_col3(request))
     ctx.setdefault("plugin_area_footer_col4", render_footer_col4(request))
     ctx.setdefault("plugin_area_footer_col5", render_footer_col5(request))

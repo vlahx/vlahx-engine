@@ -51,6 +51,51 @@
           {% endfor %}
         {% endif %}
 
+
+  {% if fixed_nav_posts %}
+  {% for nav_p in fixed_nav_posts %}
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3"
+         href="{{ url_lang(nav_p.href or nav_p.url or post_public_path(nav_p.slug)) }}">
+        {{ nav_p.fixed_label or nav_p.label }}
+      </a>
+    </li>
+  {% endfor %}
+{% endif %}
+
+{% if nav_dropdown_items %}
+  {% for dd in nav_dropdown_items %}
+    {% if dd.links %}
+      <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle py-1 px-3 border rounded-pill bg-body-tertiary text-body fw-semibold me-1"
+           href="#"
+           id="navdd{{ loop.index }}"
+           role="button"
+           data-bs-toggle="dropdown"
+           aria-expanded="false">
+          {{ dd.title or 'Menu' }}
+        </a>
+
+        <ul class="dropdown-menu shadow border-0 rounded-3 mt-1"
+            aria-labelledby="navdd{{ loop.index }}">
+          {% for link in dd.links %}
+            <li>
+              <a class="dropdown-item"
+                 href="{{ url_lang(link.href or link.url) }}">
+                {{ link.title }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </li>
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+{% if plugin_area_navbar_search %}
+...
+{% endif %}
+
         <!-- Plugin Area for Navbar Links -->
         {% if plugin_area_navbar_links %}
           {{ plugin_area_navbar_links | safe }}

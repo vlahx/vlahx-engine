@@ -499,11 +499,11 @@ def register_content_tree_provider(
     _content_tree_providers.append((order, provider))
     _content_tree_providers.sort(key=lambda t: t[0])
 
-    logger.info(
-        "Registered content tree provider: %s (order=%s)",
-        provider,
-        order,
-    )
+   # logger.info(
+       # "Registered content tree provider: %s (order=%s)",
+       # provider,
+       # order,
+    #)
 
 
 def collect_content_trees(request: Request) -> list[dict]:

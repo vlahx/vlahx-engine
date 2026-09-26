@@ -24,12 +24,21 @@ def clear_handlers() -> None:
 
 
 def subscribe(event: str, handler: Callable[..., Any]) -> None:
-    """Înregistrează un handler sincron; apelat la ``publish`` cu kwargs."""
+    logger.warning(
+        "EVENT DEBUG: subscribe event=%r handler=%r",
+        event,
+        handler,
+    )
     _handlers[event].append(handler)
 
 
 def publish(event: str, **kwargs: Any) -> None:
-    """Apelează toți handlerii pentru eveniment; erorile sunt logate, nu propagă."""
+    logger.warning(
+        "EVENT DEBUG: publish event=%r handlers=%r",
+        event,
+        _handlers.get(event, []),
+    )
+
     for fn in list(_handlers.get(event, [])):
         try:
             fn(**kwargs)

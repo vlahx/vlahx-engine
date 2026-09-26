@@ -7,7 +7,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from app.models.db_models import AppSetting
-
+import logging
+logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 APP_DIR = PROJECT_ROOT / "app"
 load_dotenv(PROJECT_ROOT / ".env", override=False)
@@ -30,6 +31,10 @@ SESSION_SECRET = (
 def get_session_secret() -> str:
     """Returnează un secret persistent pentru sesiuni, stocat în SQLite."""
     if SESSION_SECRET:
+        logger.warning(
+        "SSO DEBUG: SESSION_SECRET loaded from environment, length=%d",
+        len(SESSION_SECRET),
+        )
         return SESSION_SECRET
 
     from app.utils.db import SessionLocal
@@ -38,6 +43,10 @@ def get_session_secret() -> str:
     with SessionLocal() as db:
         setting = db.get(AppSetting, key)
         if setting and setting.value:
+            logger.warning(
+                "SSO DEBUG: SESSION_SECRET loaded from DB, length=%d",
+                len(setting.value),
+            )
             return setting.value
 
         generated = secrets.token_urlsafe(32)
@@ -408,6 +417,7 @@ def get_nav_fixed_post_links(locale: str | None = None, location: str | None = N
     # 1. Custom navigation items from settings (only link type, not dropdown)
     try:
         for item in _get_static_nav_items_raw():
+
             if str(item.get("type") or "link") == "dropdown":
                 continue  # dropdowns handled separately
             item_loc = str(item.get("location") or "navbar").strip().lower()
@@ -435,28 +445,63 @@ def get_nav_fixed_post_links(locale: str | None = None, location: str | None = N
     return items
 
 
-def get_nav_dropdown_items(locale: str | None = None, location: str | None = None) -> list[dict]:
+def get_nav_dropdown_items(
+    locale: str | None = None,
+    location: str | None = None,
+) -> list[dict]:
     """Return resolved dropdown nav items (type=dropdown) with localized title and link list."""
     dropdowns: list[dict] = []
+
     try:
         for item in _get_static_nav_items_raw():
+            item_loc = str(
+                item.get("location") or "navbar"
+            ).strip().lower()
+
             if str(item.get("type") or "link") != "dropdown":
+                print(
+                    "NAV SKIP LOCATION:",
+                    item_loc,
+                    "wanted=",
+                    location,
+                    "item=",
+                    item,
+                )
                 continue
-            item_loc = str(item.get("location") or "navbar").strip().lower()
+
             if location and item_loc not in (location.lower(), "both"):
                 continue
-            labels_dict = item.get("labels") if isinstance(item.get("labels"), dict) else {}
-            loc_label = labels_dict.get(locale) if (locale and labels_dict.get(locale)) else None
-            title = str(loc_label or item.get("label") or item.get("fixed_label") or "").strip()
+
+            labels_dict = (
+                item.get("labels")
+                if isinstance(item.get("labels"), dict)
+                else {}
+            )
+
+            loc_label = (
+                labels_dict.get(locale)
+                if (locale and labels_dict.get(locale))
+                else None
+            )
+
+            title = str(
+                loc_label
+                or item.get("label")
+                or item.get("fixed_label")
+                or ""
+            ).strip()
+
             slugs = item.get("slugs")
             if not isinstance(slugs, list):
                 slugs = []
+
             dropdowns.append({
                 "title": title,
                 "labels": labels_dict,
                 "slugs": slugs,
                 "location": item_loc,
             })
+
     except Exception:
         pass
     return dropdowns

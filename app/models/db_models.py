@@ -57,9 +57,6 @@ class User(Base):
 
 
 class AppSetting(Base):
-    """
-    Setări cheie-valoare pentru pluginuri / integrări (Telegram notificări, SMTP newsletter).
-    """
 
     __tablename__ = "app_settings"
 

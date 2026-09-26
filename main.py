@@ -61,7 +61,6 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def install_and_locale_middleware(request: Request, call_next):
-        print("🔥 MIDDLEWARE HIT:", request.method, request.url)
         path = request.url.path
 
         if not (path.startswith("/static") or path.startswith("/install") or path.startswith("/lang") or path.startswith("/.well-known")):
@@ -85,38 +84,18 @@ def create_app() -> FastAPI:
 
         # Check if route is exempt from locale prefixing
         is_exempt = any(path == prefix or path.startswith(prefix + "/") for prefix in EXEMPT_PREFIXES)
-
-        print(
-            "LOCALE DEBUG:",
-            request.method,
-            "path=", path,
-            "path_loc=", path_loc,
-            "unprefixed=", unprefixed_path,
-            "query=", str(request.query_params),
-            "is_exempt=", is_exempt,
-        )
         if not is_exempt:
             # Handle legacy ?lang=code or ?locale=code query parameters -> 301 Redirect to clean path URL
             q_lang = request.query_params.get("lang") or request.query_params.get("locale")
             if q_lang:
-                print("LEGACY LANG REDIRECT:", path, request.query_params)
-                q_lang_clean = q_lang.strip().lower()
-                if q_lang_clean in get_supported_locales():
-                    import urllib.parse
-                    q_params = dict(request.query_params)
-                    q_params.pop("lang", None)
-                    q_params.pop("locale", None)
-                    new_query = urllib.parse.urlencode(q_params)
-                    clean_base = f"{path}?{new_query}" if new_query else path
-                    target_url = build_locale_url(clean_base, q_lang_clean)
-                    return RedirectResponse(url=target_url, status_code=301)
 
-            # Un-prefixed public URLs -> redirect to /{locale}{path}
-            resolved_locale = resolve_locale(request)
-            target_url = build_locale_url(path, resolved_locale)
-            # 302 for root homepage (/), 301 for subpaths
-            status_code = 302 if path in ("/", "") else 301
-            return RedirectResponse(url=target_url, status_code=status_code)
+
+                # Un-prefixed public URLs -> redirect to /{locale}{path}
+                resolved_locale = resolve_locale(request)
+                target_url = build_locale_url(path, resolved_locale)
+                # 302 for root homepage (/), 301 for subpaths
+                status_code = 302 if path in ("/", "") else 301
+                return RedirectResponse(url=target_url, status_code=status_code)
 
         # Exempt route (admin, static, api, media, etc.)
         locale = resolve_locale(request)
